@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Please sign in</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+    <link href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css" rel="stylesheet" integrity="sha384-oOE/3m0LUMPub4kaC09mrdEhIc+e3exm4xOGxAmuFXhBNF4hcg/6MiAXAf5p0P56" crossorigin="anonymous"/>
+    <style>
+        /* 可以添加一些自訂樣式 */
+        body {
+            padding-top: 40px;
+            padding-bottom: 40px;
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="form-signin">
+        <h2 class="form-signin-heading">Login with OAuth 2.0</h2>
+
+        <div th:if="${error_message}" class="alert alert-danger" role="alert" th:text="${error_message}">
+            Error placeholder
+        </div>
+
+        <div th:if="${not #lists.isEmpty(registrations)}">
+            <p>Please select an Identity Provider:</p>
+            <div class="list-group">
+                <a th:each="registration : ${registrations}"
+                   th:href="@{{baseUri}/{registrationId}(baseUri=${authorizationBaseUri}, registrationId=${registration.registrationId})}"
+                   class="list-group-item list-group-item-action"
+                   th:text="${registration.clientName}">
+                    Provider Name
+                </a>
+            </div>
+        </div>
+        <div th:unless="${not #lists.isEmpty(registrations)} and !${error_message}">
+            <p>No available login options found.</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

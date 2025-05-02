@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>受保護頁面</title>
+</head>
+<body>
+<h1>受保護資源</h1>
+<p>歡迎, <span th:text="${username}">用戶</span>!</p>
+
+<h2>用戶屬性:</h2>
+<ul>
+    <li th:each="attr : ${attributes}">
+        <span th:text="${attr.key}">屬性名</span>: <span th:text="${attr.value}">屬性值</span>
+    </li>
+</ul>
+
+<a href="/logout">登出</a>
+</body>
+</html>
