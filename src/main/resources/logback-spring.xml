@@ -102,11 +102,11 @@
         <accessKeyId>${awsAccessKey}</accessKeyId>
         <secretAccessKey>${awsSecretKey}</secretAccessKey>
 
-        <filter class="ch.qos.logback.classic.filter.LoggerNameFilter">
-            <loggerName>com.arplanet.template</loggerName>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
+<!--        <filter class="ch.qos.logback.classic.filter.LoggerNameFilter">-->
+<!--            <loggerName>com.arplanet.auth</loggerName>-->
+<!--            <onMatch>ACCEPT</onMatch>-->
+<!--            <onMismatch>DENY</onMismatch>-->
+<!--        </filter>-->
     </appender>
 
     <!-- 開發環境 -->
