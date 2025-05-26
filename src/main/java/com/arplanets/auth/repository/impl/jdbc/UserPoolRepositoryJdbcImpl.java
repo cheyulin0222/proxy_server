@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -92,11 +93,16 @@ public class UserPoolRepositoryJdbcImpl implements UserPoolRepository {
 
     @Override
     public UserPool findByPoolName(String poolName) {
-        return jdbcTemplate.queryForObject(
-                FIND_BY_POOL_NAME_SQL,
-                userPoolRowMapper(),
-                poolName
-        );
+        try {
+            return jdbcTemplate.queryForObject(
+                    FIND_BY_POOL_NAME_SQL,
+                    userPoolRowMapper(),
+                    poolName
+            );
+        } catch (EmptyResultDataAccessException e) {
+            log.warn("UserPool not found for pool name: {}", poolName);
+            return null;
+        }
     }
 
     @Override

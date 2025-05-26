@@ -1,12 +1,11 @@
 package com.arplanets.auth.repository.impl.jdbc;
 
-import com.arplanets.auth.component.UserPoolContextHolder;
+import com.arplanets.auth.model.UserPoolContextHolder;
 import org.springframework.jdbc.core.*;
 import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
-import org.springframework.stereotype.Repository;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
@@ -121,8 +120,8 @@ public class RegisteredClientRepositoryUserPoolJdbcImpl implements RegisteredCli
     }
 
     private void insertRegisteredClient(RegisteredClient registeredClient) {
-        List<SqlParameterValue> parameters = this.registeredClientParametersMapper.apply(registeredClient);
-        // Add the user_pool_id as the last parameter for the INSERT statement
+        List<SqlParameterValue> originalParameters = this.registeredClientParametersMapper.apply(registeredClient);
+        List<SqlParameterValue> parameters = new ArrayList<>(originalParameters);
         parameters.add(new SqlParameterValue(java.sql.Types.VARCHAR, getCurrentUserPoolId()));
         PreparedStatementSetter pss = new ArgumentPreparedStatementSetter(parameters.toArray());
         this.jdbcOperations.update(INSERT_REGISTERED_CLIENT_SQL, pss);

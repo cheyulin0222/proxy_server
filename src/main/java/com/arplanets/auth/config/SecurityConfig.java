@@ -1,9 +1,11 @@
 package com.arplanets.auth.config;
 
+import com.arplanets.auth.component.AuthorizationSuccessHandlerImpl;
+import com.arplanets.auth.component.LogoutSuccessHandlerImpl;
+import com.arplanets.auth.component.TokenResponseHandlerImpl;
 import com.arplanets.auth.component.UserInfoMapper;
 import com.arplanets.auth.filter.RegistrationIdValidationFilter;
 import com.arplanets.auth.filter.UserPoolValidationFilter;
-import com.arplanets.auth.handler.*;
 import com.arplanets.auth.log.LogContext;
 import com.arplanets.auth.log.LoggingFilter;
 import com.arplanets.auth.repository.UserPoolRepository;
@@ -110,30 +112,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-//    @Bean
-//    public JWKSource<SecurityContext> jwkSource() {
-//        KeyPair keyPair = generateRsaKey();
-//        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-//        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-//        RSAKey rsaKey = new RSAKey.Builder(publicKey)
-//                .privateKey(privateKey)
-//                .keyID(UUID.randomUUID().toString())
-//                .build();
-//        JWKSet jwkSet = new JWKSet(rsaKey);
-//        return new ImmutableJWKSet<>(jwkSet);
-//    }
-//
-//    private static KeyPair generateRsaKey() {
-//        try {
-//            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-//            keyPairGenerator.initialize(2048);
-//            return keyPairGenerator.generateKeyPair();
-//        }
-//        catch (Exception ex) {
-//            throw new IllegalStateException(ex);
-//        }
-//    }
-
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
@@ -157,12 +135,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public OAuth2AuthorizationService auth2AuthorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository) {
+    public OAuth2AuthorizationService auth2AuthorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository, ObjectMapper objectMapper) {
         JdbcOAuth2AuthorizationService authorizationService = new JdbcOAuth2AuthorizationService(jdbcTemplate, clientRepository);
-
-
-        // 1. 創建並配置 ObjectMapper
-        ObjectMapper objectMapper = new ObjectMapper();
 
         ClassLoader classLoader = JdbcOAuth2AuthorizationService.class.getClassLoader();
 
@@ -198,7 +172,6 @@ public class SecurityConfig {
     }
 
 
-
     @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
     @JsonAutoDetect(
             fieldVisibility = JsonAutoDetect.Visibility.ANY,
@@ -212,7 +185,7 @@ public class SecurityConfig {
         private String customUserName;
 
         @JsonProperty("oidcUser")
-        private OidcUser oidcUser; // 這裡仍然是潛在問題點
+        private OidcUser oidcUser;
 
         @JsonCreator
         CustomOidcUserWrapperMixin(
@@ -220,23 +193,5 @@ public class SecurityConfig {
                 @JsonProperty("customUserName") String customUserName) {
         }
     }
-
-
-    //    @Bean
-//    public TokenSettings tokenSettings() {
-//        return TokenSettings.builder()
-//                .accessTokenTimeToLive(Duration.ofMinutes(30))  // 訪問令牌有效期30分鐘
-//                .refreshTokenTimeToLive(Duration.ofDays(7))    // 刷新令牌有效期7天
-//                .reuseRefreshTokens(false)                     // 每次刷新時都產生新的刷新令牌
-//                .idTokenSignatureAlgorithm(SignatureAlgorithm.RS256) // ID令牌簽名算法
-//                .build();
-//    }
-
-    //    @Bean
-//    public ClientRegistrationRepository clientRegistrationRepository(JdbcTemplate jdbcTemplate) {
-//        return new CustomClientRegistrationRepository(jdbcTemplate);
-//    }
-
-
 
 }

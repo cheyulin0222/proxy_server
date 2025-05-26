@@ -1,8 +1,7 @@
 package com.arplanets.auth.filter;
 
-import com.arplanets.auth.component.TenantPerIssuerComponentRegistry;
-import com.arplanets.auth.component.UserPoolContext;
-import com.arplanets.auth.component.UserPoolContextHolder;
+import com.arplanets.auth.model.UserPoolContext;
+import com.arplanets.auth.model.UserPoolContextHolder;
 import com.arplanets.auth.model.po.domain.UserPool;
 import com.arplanets.auth.repository.UserPoolRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,8 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContext;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
-import org.springframework.util.AntPathMatcher;
-import org.springframework.util.PathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.http.HttpHeaders;
 
@@ -41,14 +38,15 @@ public class UserPoolValidationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
+        log.info("start UserPoolValidationFilter");
         AuthorizationServerContext context = AuthorizationServerContextHolder.getContext();
         String issuer = context.getIssuer();
 
-        log.trace("issuer= {}", issuer);
+        log.info("issuer= {}", issuer);
 
         String poolName = extractPathAfterDomain(issuer);
 
-        log.trace("poolName= {}", poolName);
+        log.info("poolName= {}", poolName);
 
         if (poolName.isBlank()) {
             log.warn("Pool name not found in issuer : {}", issuer);

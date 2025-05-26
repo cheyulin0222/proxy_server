@@ -89,6 +89,25 @@
         </filter>
     </appender>
 
+    <!-- DEBUG File Appender -->
+    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logging.path}/adl-apps-nmns_debug.log</file>
+        <encoder>
+            <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${logging.path}/web-debug-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>15</maxHistory> </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>TRACE</level> <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
     <!-- AWS CloudWatch Appender -->
     <appender name="AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
         <layout class="ch.qos.logback.classic.PatternLayout">
@@ -101,12 +120,6 @@
         <region>${awsRegion}</region>
         <accessKeyId>${awsAccessKey}</accessKeyId>
         <secretAccessKey>${awsSecretKey}</secretAccessKey>
-
-<!--        <filter class="ch.qos.logback.classic.filter.LoggerNameFilter">-->
-<!--            <loggerName>com.arplanet.auth</loggerName>-->
-<!--            <onMatch>ACCEPT</onMatch>-->
-<!--            <onMismatch>DENY</onMismatch>-->
-<!--        </filter>-->
     </appender>
 
     <!-- 開發環境 -->
@@ -124,6 +137,7 @@
         <root level="info">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="AWS_LOGS"/>
+            <appender-ref ref="DEBUG_FILE"/>
         </root>
     </springProfile>
 

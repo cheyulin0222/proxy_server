@@ -1,6 +1,7 @@
-package com.arplanets.auth.repository.impl;
+package com.arplanets.auth.repository.impl.jdbc;
 
 
+import com.arplanets.auth.model.ClientRegistrationContext;
 import com.arplanets.auth.utils.JsonUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -20,48 +22,97 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @RequiredArgsConstructor
 @Repository
-public class ClientRegistrationRepositoryImpl implements ClientRegistrationRepository {
+public class ClientRegistrationRepositoryJdbcImpl implements ClientRegistrationRepository {
 
     private final JdbcTemplate jdbcTemplate;
-    private final Map<String, Map<String, Object>> registrations = new ConcurrentHashMap<>();
+    private final Map<String, ClientRegistrationContext> registrations = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void load() {
         log.info("Load ClientRegistrations...");
         List<Map<String, Object>> allRegistrations = findAll();
         this.registrations.clear();
-        allRegistrations.forEach(this::save);
+        allRegistrations.forEach(registrationData -> {
+            try {
+                this.save(registrationData);
+            } catch (Exception e) {
+                log.error("Failed to save client registration: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to load client registrations", e);
+            }
+        });
     }
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
-        Map<String, Object> registrationData = this.registrations.get(registrationId);
-        if (registrationData != null) {
+        ClientRegistrationContext registrationContext = this.registrations.get(registrationId);
+        if (registrationContext != null && registrationContext.getClientRegistration() != null) {
             log.info("Retrieved ClientRegistration");
-            return createClientRegistration(registrationData);
+            return registrationContext.getClientRegistration();
         }
         log.warn("Failed to Retrieve ClientRegistration");
         return null;
     }
 
     public String findUserPoolIdByRegistrationId(String registrationId) {
-        Map<String, Object> registrationData = this.registrations.get(registrationId);
-        if (registrationData != null) {
+        ClientRegistrationContext registrationContext = this.registrations.get(registrationId);
+        if (registrationContext != null && StringUtils.hasText(registrationContext.getUserPoolId())) {
             log.info("Retrieved User Pool ID from ClientRegistrationRepository");
-            return (String) registrationData.get("user_pool_id");
+            return registrationContext.getUserPoolId();
         }
         log.warn("Failed to Retrieve User Pool ID from ClientRegistrationRepository");
         return null;
     }
 
-    public void save(Map<String, Object> clientRegistration) {
-        this.registrations.put((String) clientRegistration.get("registration_id"), clientRegistration);
-        log.info("已從資料庫載入 registrationId: {}", clientRegistration.get("registration_id"));
+    public void save(Map<String, Object> clientRegistrationData) throws Exception {
+
+        try {
+
+            ClientRegistration clientRegistration = createClientRegistration(clientRegistrationData);
+            validate(clientRegistration);
+            String userPoolId = (String) clientRegistrationData.get("user_pool_id");
+            validateField(userPoolId, "user_pool_id");
+
+            ClientRegistrationContext clientRegistrationContext = new ClientRegistrationContext(clientRegistration, userPoolId);
+
+            this.registrations.put(clientRegistration.getRegistrationId(), clientRegistrationContext);
+        } catch (Exception e) {
+            throw new Exception(e);
+        }
     }
 
     public void delete(String registrationId) {
         this.registrations.remove(registrationId);
         log.info("已從記憶體和資料庫刪除 registrationId: {}", registrationId);
+    }
+
+    private void validate(ClientRegistration clientRegistration) {
+        if (clientRegistration == null) {
+            throw new IllegalArgumentException("clientRegistrationData 不能為空");
+        }
+
+        validateField(clientRegistration.getRegistrationId(), "registration_id");
+        validateField(clientRegistration.getClientId(), "client_id");
+        validateField(clientRegistration.getClientSecret(), "client_secret");
+        validateField(clientRegistration.getClientAuthenticationMethod().getValue(), "client_authentication_method");
+        validateField(clientRegistration.getAuthorizationGrantType().getValue(), "authorization_grant_type");
+        validateField(clientRegistration.getRedirectUri(), "redirect_uri");
+        validateField(clientRegistration.getClientName(), "provider_name");
+        validateField(clientRegistration.getProviderDetails().getAuthorizationUri(), "authorization_uri");
+        validateField(clientRegistration.getProviderDetails().getTokenUri(), "token_uri");
+        validateField(clientRegistration.getProviderDetails().getUserInfoEndpoint().getUri(), "user_info_uri");
+        validateField(clientRegistration.getProviderDetails().getJwkSetUri(), "jwk_set_uri");
+        validateField(clientRegistration.getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName(), "user_name_attribute_name");
+        validateField(String.join(",", clientRegistration.getScopes()), "scopes");
+    }
+
+    private void validateField(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            log.error("{} 不能為空", fieldName);
+            throw new IllegalArgumentException(fieldName + " 不能為空");
+        }
+        if (!"client_secret".equals(fieldName)) {
+            log.info("{}: {}", fieldName, value);
+        }
     }
 
     private ClientRegistration createClientRegistration(Map<String, Object> data) {
@@ -88,6 +139,7 @@ public class ClientRegistrationRepositoryImpl implements ClientRegistrationRepos
                 log.warn("ClientRegistration 解析 scopes JSON 失敗: registration_id = {}, scope = {}, ", data.get("registration_id"), scopesJson);
             }
         }
+
         return builder.build();
     }
 
@@ -105,7 +157,8 @@ public class ClientRegistrationRepositoryImpl implements ClientRegistrationRepos
                 "token_uri, " +
                 "user_info_uri, " +
                 "jwk_set_uri, " +
-                "user_name_attribute_name " +
+                "user_name_attribute_name, " +
+                "scopes " +
                 "FROM client_registration " +
                 "WHERE is_active = 1 " +
                 "AND deleted_at IS NULL";

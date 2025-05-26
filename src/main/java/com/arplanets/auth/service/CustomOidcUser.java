@@ -35,7 +35,6 @@ public class CustomOidcUser implements OidcUser, Serializable {
     @Override
     @JsonIgnore
     public Map<String, Object> getClaims() {
-        log.info("getClaims:oidcUser={}", oidcUser);
         return oidcUser != null ? oidcUser.getClaims() : null;
     }
 

@@ -1,6 +1,6 @@
 package com.arplanets.auth.filter;
 
-import com.arplanets.auth.repository.impl.ClientRegistrationRepositoryImpl;
+import com.arplanets.auth.repository.impl.jdbc.ClientRegistrationRepositoryJdbcImpl;
 import com.arplanets.auth.repository.impl.jdbc.RegisteredClientRepositoryUserPoolJdbcImpl;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.FilterChain;
@@ -75,7 +75,7 @@ public class RegistrationIdValidationFilter extends OncePerRequestFilter {
         String userPoolIdFromClientId = null;
 
         // 獲取 userPoolIdFromRegistrationId
-        if (clientRegistrationRepository instanceof ClientRegistrationRepositoryImpl repository) {
+        if (clientRegistrationRepository instanceof ClientRegistrationRepositoryJdbcImpl repository) {
             userPoolIdFromRegistrationId = repository.findUserPoolIdByRegistrationId(registrationId);
         } else {
             log.warn("無法獲取 RegistrationId 的 UserPool ID，因為 ClientRegistrationRepository 不是預期類型。");

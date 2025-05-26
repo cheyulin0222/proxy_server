@@ -1,4 +1,4 @@
-package com.arplanets.auth.component;
+package com.arplanets.auth.model;
 
 import com.arplanets.auth.model.po.domain.UserPool;
 import lombok.AllArgsConstructor;

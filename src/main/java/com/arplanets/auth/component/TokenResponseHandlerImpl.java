@@ -1,4 +1,4 @@
-package com.arplanets.auth.handler;
+package com.arplanets.auth.component;
 
 import com.arplanets.auth.service.TokenService;
 import jakarta.servlet.http.HttpServletRequest;

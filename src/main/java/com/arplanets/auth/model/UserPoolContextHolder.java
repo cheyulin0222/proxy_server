@@ -1,4 +1,4 @@
-package com.arplanets.auth.component;
+package com.arplanets.auth.model;
 
 
 public class UserPoolContextHolder {

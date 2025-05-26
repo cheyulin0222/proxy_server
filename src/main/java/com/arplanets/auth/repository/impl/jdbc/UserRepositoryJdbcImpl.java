@@ -1,6 +1,7 @@
-package com.arplanets.auth.repository;
+package com.arplanets.auth.repository.impl.jdbc;
 
 import com.arplanets.auth.model.po.domain.User;
+import com.arplanets.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,7 +14,7 @@ import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
-public class UserJdbcRepository implements UserRepository{
+public class UserRepositoryJdbcImpl implements UserRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -48,7 +49,7 @@ public class UserJdbcRepository implements UserRepository{
         String sql = "SELECT * FROM user WHERE user_id = ?";
 
         try {
-            User user = jdbcTemplate.queryForObject(sql, new UserJdbcRepository.UserRowMapper(), id);
+            User user = jdbcTemplate.queryForObject(sql, new UserRepositoryJdbcImpl.UserRowMapper(), id);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();

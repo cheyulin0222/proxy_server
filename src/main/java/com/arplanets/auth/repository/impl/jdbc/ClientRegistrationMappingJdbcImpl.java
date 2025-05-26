@@ -2,14 +2,22 @@ package com.arplanets.auth.repository.impl.jdbc;
 
 import com.arplanets.auth.model.po.domain.ClientRegistrationMapping;
 import com.arplanets.auth.repository.ClientRegistrationMappingRepository;
-import com.arplanets.auth.test.CustomClientRegistrationRepository;
+import com.arplanets.auth.utils.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.lang.NonNull;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.stereotype.Repository;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
@@ -68,7 +76,36 @@ public class ClientRegistrationMappingJdbcImpl implements ClientRegistrationMapp
                 "AND orc.deleted_at IS NULL " +
                 "AND cr.user_pool_id = orc.user_pool_id";
 
-        return jdbcTemplate.query(sql, new CustomClientRegistrationRepository.ClientRegistrationRowMapper(), clientId);
+        return jdbcTemplate.query(sql, new ClientRegistrationMappingJdbcImpl.ClientRegistrationRowMapper(), clientId);
 
+    }
+
+    private static class ClientRegistrationRowMapper implements RowMapper<ClientRegistration> {
+        @Override
+        public ClientRegistration mapRow(@NonNull ResultSet rs, int rowNum) throws SQLException {
+            // 直接在 mapRow 方法中处理异常
+            Set<String> scopes = new HashSet<>();
+            try{
+                scopes = JsonUtil.convertJsonStringToSet(rs.getString("scopes"), String.class);
+            }catch (Exception e){
+                //ignore
+                //log
+            }
+
+            return ClientRegistration.withRegistrationId(rs.getString("registration_id"))
+                    .clientName(rs.getString("provider_name"))
+                    .clientId(rs.getString("client_id"))
+                    .clientSecret(rs.getString("client_secret"))
+                    .clientAuthenticationMethod(new ClientAuthenticationMethod(rs.getString("client_authentication_method")))
+                    .authorizationGrantType(new AuthorizationGrantType(rs.getString("authorization_grant_type")))
+                    .redirectUri(rs.getString("redirect_uri"))
+                    .authorizationUri(rs.getString("authorization_uri"))
+                    .tokenUri(rs.getString("token_uri"))
+                    .userInfoUri(rs.getString("user_info_uri"))
+                    .jwkSetUri(rs.getString("jwk_set_uri"))
+                    .userNameAttributeName(rs.getString("user_name_attribute_name"))
+                    .scope(scopes)
+                    .build();
+        }
     }
 }
