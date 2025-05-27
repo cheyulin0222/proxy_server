@@ -40,3 +40,7 @@ src/main/resources/application-dev.properties
 src/main/resources/application-test.properties
 src/main/resources/application-jeremy.properties
 src/main/resources/application-prod.properties
+
+# sonarqube
+.scannerwork/
+sonar-project.properties

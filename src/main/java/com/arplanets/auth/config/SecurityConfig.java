@@ -8,6 +8,7 @@ import com.arplanets.auth.filter.RegistrationIdValidationFilter;
 import com.arplanets.auth.filter.UserPoolValidationFilter;
 import com.arplanets.auth.log.LogContext;
 import com.arplanets.auth.log.LoggingFilter;
+import com.arplanets.auth.model.CustomOidcUser;
 import com.arplanets.auth.repository.UserPoolRepository;
 import com.arplanets.auth.repository.impl.jdbc.RegisteredClientRepositoryUserPoolJdbcImpl;
 import com.arplanets.auth.service.*;
@@ -57,9 +58,12 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    /**
+     * 處理 OIDC 端點
+     */
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(
+    public SecurityFilterChain oidcSecurityFilterChain(
             HttpSecurity http,
             TokenService tokenService,
             OAuth2AuthorizationService oAuth2AuthorizationService,
@@ -98,9 +102,12 @@ public class SecurityConfig {
 
     }
 
+    /**
+     * 處理 OAuth2
+     */
     @Bean
     @Order(2)
-    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrationRepository, RegisteredClientRepository registeredClientRepository) throws Exception {
+    public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrationRepository, RegisteredClientRepository registeredClientRepository) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
                         .anyRequest().authenticated())

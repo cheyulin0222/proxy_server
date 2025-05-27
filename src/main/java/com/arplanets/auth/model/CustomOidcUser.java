@@ -1,4 +1,4 @@
-package com.arplanets.auth.service;
+package com.arplanets.auth.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;

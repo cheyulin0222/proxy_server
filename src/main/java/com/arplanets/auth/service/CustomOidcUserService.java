@@ -1,5 +1,6 @@
 package com.arplanets.auth.service;
 
+import com.arplanets.auth.model.CustomOidcUser;
 import com.arplanets.auth.model.po.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
