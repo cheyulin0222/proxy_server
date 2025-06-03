@@ -140,8 +140,11 @@ public class SecurityConfig {
     }
 
     @Bean
-    public OAuth2AuthorizationService auth2AuthorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository, ObjectMapper objectMapper) {
+    public OAuth2AuthorizationService auth2AuthorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository) {
         JdbcOAuth2AuthorizationService authorizationService = new JdbcOAuth2AuthorizationService(jdbcTemplate, clientRepository);
+
+        // 一定要 new 一個，用注入的會有問題!!!
+        ObjectMapper objectMapper = new ObjectMapper();
 
         ClassLoader classLoader = JdbcOAuth2AuthorizationService.class.getClassLoader();
 
