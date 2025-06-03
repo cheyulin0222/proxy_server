@@ -44,3 +44,8 @@ src/main/resources/application-prod.properties
 # sonarqube
 .scannerwork/
 sonar-project.properties
+
+# diff
+diffs/
+# 忽略自動生成的 diff 檔案資料夾
+all_changes_diffs/
