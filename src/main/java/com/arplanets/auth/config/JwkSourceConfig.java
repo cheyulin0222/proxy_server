@@ -1,8 +1,9 @@
 package com.arplanets.auth.config;
 
-import com.arplanets.auth.component.TenantPerIssuerComponentRegistry;
+import com.arplanets.auth.component.TenantRegistry;
 import com.arplanets.auth.model.po.domain.UserPool;
 import com.arplanets.auth.repository.UserPoolRepository;
+import com.arplanets.auth.service.TenantJwkService;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSelector;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -13,9 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
-import java.text.ParseException;
 import java.util.List;
 
 /**
@@ -26,7 +25,8 @@ import java.util.List;
 @Slf4j
 public class JwkSourceConfig {
 
-    private final TenantPerIssuerComponentRegistry componentRegistry;
+    private final TenantRegistry componentRegistry;
+    private final TenantJwkService tenantJwkService;
     private final UserPoolRepository userPoolRepository;
 
     @Bean
@@ -35,50 +35,19 @@ public class JwkSourceConfig {
         List<UserPool> userPools = userPoolRepository.findAll();
 
         userPools.forEach(userPool -> {
-            String tenantId = null;
             try {
-                tenantId = userPool.getPoolName();
-                if (tenantId == null) {
-                    String errorMessage = String.format("Could not determine tenant identifier path for UserPool ID: %s", userPool.getUserPoolId());
-                    log.error(errorMessage);
-                    throw new IllegalStateException(errorMessage);
-                }
-
-                String jwkSetJson = userPool.getJwkSet();
-                if (!StringUtils.hasText(jwkSetJson)) {
-                    String errorMessage = String.format("JWKSet JSON is missing in the database for UserPool ID: %s, Tenant ID: %s", userPool.getUserPoolId(), tenantId);
-                    log.error(errorMessage);
-                    throw new IllegalStateException(errorMessage);
-                }
-
-                JWKSet jwkSet;
-                try {
-                    jwkSet = JWKSet.parse(jwkSetJson);
-                } catch (ParseException e) {
-                    String errorMessage = String.format("Failed to parse JWKSet JSON for UserPool ID: %s, Tenant ID: %s. Error: %s", userPool.getUserPoolId(), tenantId, e.getMessage());
-                    log.error(errorMessage, e);
-                    throw new IllegalStateException(errorMessage, e);
-                }
-
-                componentRegistry.register(tenantId, JWKSet.class, jwkSet);
-                log.info("Successfully registered JWKSet for Tenant ID: {}", tenantId);
-
-
-            } catch (IllegalArgumentException e) {
-                String errorMessage = String.format("Error processing UserPool ID: %s. Invalid configuration: %s", userPool.getUserPoolId(), e.getMessage());
-                log.error(errorMessage, e);
-                throw new IllegalStateException(errorMessage, e);
+                tenantJwkService.registerUserPoolJwkSet(userPool);
             } catch (Exception e) {
-                String errorMessage = String.format("Unexpected error processing UserPool ID: %s, Tenant ID: %s. Error: %s", userPool.getUserPoolId(), tenantId, e.getMessage());
-                log.error(errorMessage, e);
-                throw new RuntimeException(errorMessage, e);
+                log.error("Failed to register JWKSet for UserPool ID: {}. Error: {}",
+                        userPool.getUserPoolId(), e.getMessage(), e);
+                throw new RuntimeException("Failed to load JWKSource from database due to UserPool JWKSet error.", e);
             }
         });
 
         return new DelegatingJWKSource(componentRegistry);
     }
 
-    private record DelegatingJWKSource(TenantPerIssuerComponentRegistry componentRegistry) implements JWKSource<SecurityContext> {
+    private record DelegatingJWKSource(TenantRegistry componentRegistry) implements JWKSource<SecurityContext> {
         @Override
         public List<JWK> get(JWKSelector jwkSelector, SecurityContext securityContext) {
             // 從註冊表獲取當前租戶的 JWKSet
@@ -90,5 +59,4 @@ public class JwkSourceConfig {
             return jwkSelector.select(tenantJwkSet);
         }
     }
-
 }

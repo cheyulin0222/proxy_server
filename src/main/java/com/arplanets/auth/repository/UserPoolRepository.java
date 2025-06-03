@@ -6,8 +6,5 @@ import java.util.List;
 
 public interface UserPoolRepository {
 
-    UserPool findById(String userPoolId);
-    UserPool findByPoolName(String poolName);
     List<UserPool> findAll();
-    UserPool save(UserPool userPool);
 }

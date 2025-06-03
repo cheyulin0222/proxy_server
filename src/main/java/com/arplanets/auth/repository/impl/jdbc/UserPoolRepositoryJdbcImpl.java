@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -27,38 +26,6 @@ public class UserPoolRepositoryJdbcImpl implements UserPoolRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String FIND_BY_ID_SQL = """
-        SELECT
-            user_pool_id,
-            pool_name,
-            scopes,
-            jwk_set,
-            is_active,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM user_pool
-        WHERE user_pool_id = ?
-          AND is_active = 1
-          AND deleted_at IS NULL
-        """;
-
-    private static final String FIND_BY_POOL_NAME_SQL = """
-        SELECT
-            user_pool_id,
-            pool_name,
-            scopes,
-            jwk_set,
-            is_active,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM user_pool
-        WHERE pool_name = ?
-          AND is_active = 1
-          AND deleted_at IS NULL
-        """;
-
     private static final String FIND_ALL_SQL = """
         SELECT
             user_pool_id, pool_name, scopes, jwk_set,
@@ -68,43 +35,6 @@ public class UserPoolRepositoryJdbcImpl implements UserPoolRepository {
         ORDER BY pool_name ASC
         """;
 
-    private static final String INSERT_SQL = """
-        INSERT INTO user_pool
-            (user_pool_id, pool_name, scopes, jwk_set)
-        VALUES
-            (?, ?, ?, ?)
-        """;
-
-    @Override
-    public UserPool findById(String userPoolId) {
-        List<UserPool> results = jdbcTemplate.query(
-                FIND_BY_ID_SQL,
-                userPoolRowMapper(),
-                userPoolId
-        );
-
-        if (results.isEmpty()) {
-            return null;
-        }
-
-        return results.get(0);
-
-    }
-
-    @Override
-    public UserPool findByPoolName(String poolName) {
-        try {
-            return jdbcTemplate.queryForObject(
-                    FIND_BY_POOL_NAME_SQL,
-                    userPoolRowMapper(),
-                    poolName
-            );
-        } catch (EmptyResultDataAccessException e) {
-            log.warn("UserPool not found for pool name: {}", poolName);
-            return null;
-        }
-    }
-
     @Override
     public List<UserPool> findAll() {
         try {
@@ -113,41 +43,6 @@ public class UserPoolRepositoryJdbcImpl implements UserPoolRepository {
             log.error("查找所有活動的 UserPool 時資料庫出錯", e);
             return Collections.emptyList();
         }
-    }
-
-    @Override
-    public UserPool save(UserPool userPool) {
-        if (!StringUtils.hasText(userPool.getUserPoolId())) {
-            throw new IllegalArgumentException("儲存前必須提供 UserPoolId");
-        }
-        if (!StringUtils.hasText(userPool.getPoolName())) {
-            throw new IllegalArgumentException("儲存前必須提供 PoolName (來自 pool_name)");
-        }
-
-        String scopesJsonString = null;
-        if (userPool.getScopes() != null && !userPool.getScopes().isEmpty()) {
-            try {
-                scopesJsonString = objectMapper.writeValueAsString(userPool.getScopes());
-            } catch (JsonProcessingException e) {
-                log.error("序列化 UserPool ID {} 的 scopes 時出錯: {}", userPool.getUserPoolId(), e.getMessage());
-                throw new DataAccessException("無法序列化 scopes 為 JSON", e) {};
-            }
-        }
-
-        log.info("即將新增UserPool");
-
-        jdbcTemplate.update(
-            INSERT_SQL,
-            userPool.getUserPoolId(),
-            userPool.getPoolName(),
-            scopesJsonString,
-            userPool.getJwkSet()
-        );
-
-        log.info("UserPool新增成功");
-
-        return findById(userPool.getUserPoolId());
-
     }
 
     private RowMapper<UserPool> userPoolRowMapper() {

@@ -1,4 +1,4 @@
-package com.arplanets.auth.component;
+package com.arplanets.auth.component.spring.oidc;
 
 import com.arplanets.auth.model.po.domain.ClaimMapping;
 import com.arplanets.auth.model.po.domain.UserClaim;

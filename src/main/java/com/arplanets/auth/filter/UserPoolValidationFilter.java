@@ -2,8 +2,9 @@ package com.arplanets.auth.filter;
 
 import com.arplanets.auth.model.UserPoolContext;
 import com.arplanets.auth.model.UserPoolContextHolder;
-import com.arplanets.auth.model.po.domain.UserPool;
+import com.arplanets.auth.model.UserPoolInfo;
 import com.arplanets.auth.repository.UserPoolRepository;
+import com.arplanets.auth.service.UserPoolInfoSource;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,32 +18,31 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContext;
 import org.springframework.security.oauth2.server.authorization.context.AuthorizationServerContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.http.HttpHeaders;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @RequiredArgsConstructor
 @Slf4j
 public class UserPoolValidationFilter extends OncePerRequestFilter {
 
-    private final UserPoolRepository userPoolRepository;
+    private final UserPoolInfoSource userPoolInfoSource;
     private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        log.info("start UserPoolValidationFilter");
         AuthorizationServerContext context = AuthorizationServerContextHolder.getContext();
-        String issuer = context.getIssuer();
+        if (context == null || context.getIssuer() == null) {
+            log.warn("Cannot get component, AuthorizationServerContext or Issuer is null.");
+            sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, "AuthorizationServerContext or Issuer is null.");
+            return;
+        }
 
-        log.info("issuer= {}", issuer);
+        String issuer = context.getIssuer();
 
         String poolName = extractPathAfterDomain(issuer);
 
@@ -54,16 +54,16 @@ public class UserPoolValidationFilter extends OncePerRequestFilter {
             return;
         }
 
-        UserPool userPool = userPoolRepository.findByPoolName(poolName);
+        UserPoolInfo userPoolInfo = userPoolInfoSource.getUserPoolInfo();
 
-        if (userPool == null) {
+        if (userPoolInfo == null) {
             log.warn("User pool not found for pool name: {}", poolName);
             sendErrorResponse(response, HttpStatus.NOT_FOUND, "User pool not found.");
             return;
         }
 
-        String userPoolId = userPool.getUserPoolId();
-        UserPoolContextHolder.setContext(new UserPoolContext(userPoolId, userPool));
+        String userPoolId = userPoolInfo.getUserPoolId();
+        UserPoolContextHolder.setContext(new UserPoolContext(userPoolId, userPoolInfo));
         log.debug("Set UserPoolContext for User Pool ID '{}'", userPoolId);
 
         try {
@@ -73,38 +73,6 @@ public class UserPoolValidationFilter extends OncePerRequestFilter {
             log.debug("Cleared UserPoolContext for User Pool ID '{}'", userPoolId);
         }
 
-    }
-
-//    @Override
-//    protected boolean shouldNotFilter(HttpServletRequest request) {
-//        return !pathMatcher.match("/oidc/**", request.getRequestURI());
-//    }
-
-    private Optional<String> extractClientId(HttpServletRequest request) {
-        String clientId = request.getParameter("client_id");
-        if (clientId != null && !clientId.isBlank()) {
-            return Optional.of(clientId);
-        }
-
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.toLowerCase().startsWith("basic ")) {
-            try {
-                String base64Credentials = header.substring("Basic ".length()).trim();
-                byte[] credDecoded = Base64.getDecoder().decode(base64Credentials);
-                String credentials = new String(credDecoded, StandardCharsets.UTF_8);
-                // credentials = username:password
-                final String[] values = credentials.split(":", 2);
-                if (values.length > 0 && !values[0].isBlank()) {
-                    // Basic Auth 的 username 通常就是 Client ID
-                    return Optional.of(values[0]);
-                }
-            } catch (IllegalArgumentException e) {
-                logger.warn("Failed to decode Basic Authorization header: " + e.getMessage());
-
-            }
-        }
-
-        return Optional.empty();
     }
 
     private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String description) throws IOException {

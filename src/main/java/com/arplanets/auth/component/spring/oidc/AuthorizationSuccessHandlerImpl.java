@@ -1,4 +1,4 @@
-package com.arplanets.auth.component;
+package com.arplanets.auth.component.spring.oidc;
 
 import com.arplanets.auth.model.enums.AuthAction;
 import com.arplanets.auth.service.AuthActivityService;

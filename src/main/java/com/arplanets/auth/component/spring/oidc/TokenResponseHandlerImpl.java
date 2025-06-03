@@ -1,4 +1,4 @@
-package com.arplanets.auth.component;
+package com.arplanets.auth.component.spring.oidc;
 
 import com.arplanets.auth.service.TokenService;
 import jakarta.servlet.http.HttpServletRequest;

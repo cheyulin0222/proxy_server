@@ -1,21 +1,23 @@
 package com.arplanets.auth.config;
 
-import com.arplanets.auth.component.AuthorizationSuccessHandlerImpl;
-import com.arplanets.auth.component.LogoutSuccessHandlerImpl;
-import com.arplanets.auth.component.TokenResponseHandlerImpl;
-import com.arplanets.auth.component.UserInfoMapper;
+import com.arplanets.auth.component.spring.oidc.AuthorizationSuccessHandlerImpl;
+import com.arplanets.auth.component.spring.oidc.LogoutSuccessHandlerImpl;
+import com.arplanets.auth.component.spring.oidc.TokenResponseHandlerImpl;
+import com.arplanets.auth.component.spring.oidc.UserInfoMapper;
 import com.arplanets.auth.filter.RegistrationIdValidationFilter;
 import com.arplanets.auth.filter.UserPoolValidationFilter;
 import com.arplanets.auth.log.LogContext;
 import com.arplanets.auth.log.LoggingFilter;
-import com.arplanets.auth.model.CustomOidcUser;
-import com.arplanets.auth.repository.UserPoolRepository;
-import com.arplanets.auth.repository.impl.jdbc.RegisteredClientRepositoryUserPoolJdbcImpl;
+import com.arplanets.auth.component.spring.oidc.OidcUserImpl;
+import com.arplanets.auth.repository.RegisteredClientPersistentRepository;
 import com.arplanets.auth.service.*;
+import com.arplanets.auth.service.impl.ClientRegistrationService;
 import com.arplanets.auth.utils.StringUtil;
 import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +33,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -50,7 +51,9 @@ import org.springframework.security.web.context.request.async.WebAsyncManagerInt
 import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.security.web.util.matcher.*;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 
 @Configuration
@@ -71,7 +74,7 @@ public class SecurityConfig {
             OAuth2AuthorizationService authorizationService,
             UserInfoMapper userInfoMapper,
             ObjectMapper objectMapper,
-            UserPoolRepository userPoolRepository,
+            UserPoolInfoSource userPoolInfoSource,
             LogContext logContext
     ) throws Exception {
 
@@ -96,7 +99,7 @@ public class SecurityConfig {
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
             .csrf(AbstractHttpConfigurer::disable)
             .addFilterBefore(new LoggingFilter(logContext), WebAsyncManagerIntegrationFilter.class)
-            .addFilterAfter(new UserPoolValidationFilter(userPoolRepository, objectMapper), HeaderWriterFilter.class);
+            .addFilterAfter(new UserPoolValidationFilter(userPoolInfoSource, objectMapper), HeaderWriterFilter.class);
 
         return http.build();
 
@@ -107,14 +110,14 @@ public class SecurityConfig {
      */
     @Bean
     @Order(2)
-    public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, ClientRegistrationRepository clientRegistrationRepository, RegisteredClientRepository registeredClientRepository) throws Exception {
+    public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, ClientRegistrationService clientRegistrationService, RegisteredClientPersistentRepository registeredClientPersistentRepository) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
                         .anyRequest().authenticated())
             // 當請求來源於瀏覽器，(且無 Authorization: Bearer <TOKEN>)時走
             .oauth2Login(oauth2 -> oauth2
                     .loginPage(StringUtil.LOGIN_PATH))
-            .addFilterBefore(new RegistrationIdValidationFilter(clientRegistrationRepository, registeredClientRepository), OAuth2AuthorizationRequestRedirectFilter.class);
+            .addFilterBefore(new RegistrationIdValidationFilter(clientRegistrationService, registeredClientPersistentRepository), OAuth2AuthorizationRequestRedirectFilter.class);
 
         return http.build();
     }
@@ -137,11 +140,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder) {
-        return new RegisteredClientRepositoryUserPoolJdbcImpl(jdbcTemplate);
-    }
-
-    @Bean
     public OAuth2AuthorizationService auth2AuthorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository, ObjectMapper objectMapper) {
         JdbcOAuth2AuthorizationService authorizationService = new JdbcOAuth2AuthorizationService(jdbcTemplate, clientRepository);
 
@@ -152,7 +150,7 @@ public class SecurityConfig {
 
         objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
 
-        objectMapper.addMixIn(CustomOidcUser.class, CustomOidcUserWrapperMixin.class);
+        objectMapper.addMixIn(OidcUserImpl.class, CustomOidcUserWrapperMixin.class);
 
         // 2. 配置 RowMapper (用於讀取/反序列化)
         JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper rowMapper =
@@ -172,6 +170,7 @@ public class SecurityConfig {
 
         return authorizationService;
     }
+
 
     @Bean
     public OAuth2AuthorizationConsentService auth2AuthorizationConsentService(JdbcTemplate jdbcTemplate, RegisteredClientRepository clientRepository) {

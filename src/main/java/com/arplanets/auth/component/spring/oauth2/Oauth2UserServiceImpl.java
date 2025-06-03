@@ -1,7 +1,12 @@
-package com.arplanets.auth.service;
+package com.arplanets.auth.component.spring.oauth2;
 
-import com.arplanets.auth.model.CustomOidcUser;
+import com.arplanets.auth.component.spring.oidc.OidcUserImpl;
+import com.arplanets.auth.model.ClientRegistrationContext;
 import com.arplanets.auth.model.po.domain.User;
+import com.arplanets.auth.service.UserInfoService;
+import com.arplanets.auth.service.UserPoolInfoService;
+import com.arplanets.auth.service.UserService;
+import com.arplanets.auth.service.impl.ClientRegistrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
@@ -16,19 +21,27 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CustomOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
+public class Oauth2UserServiceImpl implements OAuth2UserService<OidcUserRequest, OidcUser> {
 
     private final OidcUserService delegate = new OidcUserService();
     private final UserService userService;
     private final UserInfoService userInfoService;
+    private final ClientRegistrationService clientRegistrationService;
+    private final UserPoolInfoService userPoolInfoService;
 
     @Override
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
+
+        log.info("Oauth2UserServiceImpl loadUser!!!!!!!!!!!!!!!!!!!!");
 
         OidcUser oidcUser = delegate.loadUser(userRequest);
 
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         String providerName = userRequest.getClientRegistration().getClientName();
+
+        ClientRegistrationContext clientRegistrationContext = clientRegistrationService.get(registrationId);
+        String userPoolId = clientRegistrationContext.getUserPoolId();
+        String poolName = userPoolInfoService.findByPoolId(userPoolId).getPoolName();
 
         // 3. 獲取 IdP 的 Subject ('sub' claim)
         String idpSub = oidcUser.getSubject();
@@ -38,7 +51,7 @@ public class CustomOidcUserService implements OAuth2UserService<OidcUserRequest,
         }
 
         // *** 4. 組合你想要的 Principal Name 格式 ***
-        String customPrincipalName = providerName + ":" + idpSub;
+        String customPrincipalName = poolName + ":" + providerName + ":" + idpSub;
 
         try {
             // 5. 創建或查詢本地使用者 (使用 providerName 和 idpSub)
@@ -57,7 +70,7 @@ public class CustomOidcUserService implements OAuth2UserService<OidcUserRequest,
         // *** 7. 返回 Wrapper 物件 ***
         // 將原始的 oidcUser 和 你組合好的 customPrincipalName 傳入 Wrapper
         // 這個 Wrapper 的 getName() 會回傳 customPrincipalName
-        return new CustomOidcUser(oidcUser, customPrincipalName);
+        return new OidcUserImpl(oidcUser, customPrincipalName);
     }
 }
 

@@ -1,7 +1,7 @@
 package com.arplanets.auth.filter;
 
-import com.arplanets.auth.repository.impl.jdbc.ClientRegistrationRepositoryJdbcImpl;
-import com.arplanets.auth.repository.impl.jdbc.RegisteredClientRepositoryUserPoolJdbcImpl;
+import com.arplanets.auth.repository.RegisteredClientPersistentRepository;
+import com.arplanets.auth.service.impl.ClientRegistrationService;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,8 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.savedrequest.SavedRequest;
@@ -32,8 +30,8 @@ import java.util.Optional;
 public class RegistrationIdValidationFilter extends OncePerRequestFilter {
 
     private final RequestCache requestCache = new HttpSessionRequestCache();
-    private final ClientRegistrationRepository clientRegistrationRepository;
-    private final RegisteredClientRepository registeredClientRepository;
+    private final ClientRegistrationService clientRegistrationService;
+    private final RegisteredClientPersistentRepository registeredClientPersistentRepository;
     private static final RequestMatcher OAUTH2_AUTH_REQUEST_MATCHER =
             new AntPathRequestMatcher("/oauth2/authorization/{registrationId}");
 
@@ -71,22 +69,13 @@ public class RegistrationIdValidationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String userPoolIdFromRegistrationId = null;
-        String userPoolIdFromClientId = null;
-
         // 獲取 userPoolIdFromRegistrationId
-        if (clientRegistrationRepository instanceof ClientRegistrationRepositoryJdbcImpl repository) {
-            userPoolIdFromRegistrationId = repository.findUserPoolIdByRegistrationId(registrationId);
-        } else {
-            log.warn("無法獲取 RegistrationId 的 UserPool ID，因為 ClientRegistrationRepository 不是預期類型。");
-        }
-
+        String userPoolIdFromRegistrationId = clientRegistrationService.findUserPoolIdByRegistrationId(registrationId);
         // 獲取 userPoolIdFromClientId
-        if (registeredClientRepository instanceof RegisteredClientRepositoryUserPoolJdbcImpl repository) {
-            userPoolIdFromClientId = repository.findUserPoolIdByClientId(clientId);
-        } else {
-            log.warn("無法獲取 ClientId 的 UserPool ID，因為 RegisteredClientRepository 不是預期類型。");
-        }
+        String userPoolIdFromClientId = registeredClientPersistentRepository.findUserPoolIdByClientId(clientId);
+
+        log.info("userPoolIdFromRegistrationId={}", userPoolIdFromRegistrationId);
+        log.info("userPoolIdFromClientId={}", userPoolIdFromClientId);
 
         // 進行比較 (只有兩者都成功獲取時才比較)
         if (userPoolIdFromRegistrationId != null && userPoolIdFromClientId != null &&

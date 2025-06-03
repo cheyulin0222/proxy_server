@@ -1,4 +1,4 @@
-package com.arplanets.auth.model;
+package com.arplanets.auth.component.spring.oidc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -15,7 +15,7 @@ import java.util.Collection;
 import java.util.Map;
 
 @Slf4j
-public class CustomOidcUser implements OidcUser, Serializable {
+public class OidcUserImpl implements OidcUser, Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,7 +24,7 @@ public class CustomOidcUser implements OidcUser, Serializable {
     private final String customUserName;
 
     @JsonCreator
-    public CustomOidcUser(
+    public OidcUserImpl(
             @JsonProperty("oidcUser") OidcUser oidcUser,
             @JsonProperty("customUserName") String customUserName) {
         this.oidcUser = oidcUser;
