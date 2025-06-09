@@ -1,13 +1,15 @@
 package com.arplanets.auth.component.spring.oidc;
 
-import com.arplanets.auth.repository.RegisteredClientPersistentRepository;
+import com.arplanets.auth.repository.persistence.RegisteredClientPersistentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.stereotype.Component;
 
-
+/**
+ * Spring 用來操作 oauth2_registered_client
+ */
 @Component
 @RequiredArgsConstructor
 public class RegisteredClientRepositoryImpl implements RegisteredClientRepository {

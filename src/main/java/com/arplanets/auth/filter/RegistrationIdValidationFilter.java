@@ -1,7 +1,7 @@
 package com.arplanets.auth.filter;
 
-import com.arplanets.auth.repository.RegisteredClientPersistentRepository;
-import com.arplanets.auth.service.impl.ClientRegistrationService;
+import com.arplanets.auth.repository.persistence.RegisteredClientPersistentRepository;
+import com.arplanets.auth.service.inmemory.InMemoryClientRegistrationService;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,7 +30,7 @@ import java.util.Optional;
 public class RegistrationIdValidationFilter extends OncePerRequestFilter {
 
     private final RequestCache requestCache = new HttpSessionRequestCache();
-    private final ClientRegistrationService clientRegistrationService;
+    private final InMemoryClientRegistrationService inMemoryClientRegistrationService;
     private final RegisteredClientPersistentRepository registeredClientPersistentRepository;
     private static final RequestMatcher OAUTH2_AUTH_REQUEST_MATCHER =
             new AntPathRequestMatcher("/oauth2/authorization/{registrationId}");
@@ -70,12 +70,9 @@ public class RegistrationIdValidationFilter extends OncePerRequestFilter {
         }
 
         // 獲取 userPoolIdFromRegistrationId
-        String userPoolIdFromRegistrationId = clientRegistrationService.findUserPoolIdByRegistrationId(registrationId);
+        String userPoolIdFromRegistrationId = inMemoryClientRegistrationService.findUserPoolIdByRegistrationId(registrationId);
         // 獲取 userPoolIdFromClientId
         String userPoolIdFromClientId = registeredClientPersistentRepository.findUserPoolIdByClientId(clientId);
-
-        log.info("userPoolIdFromRegistrationId={}", userPoolIdFromRegistrationId);
-        log.info("userPoolIdFromClientId={}", userPoolIdFromClientId);
 
         // 進行比較 (只有兩者都成功獲取時才比較)
         if (userPoolIdFromRegistrationId != null && userPoolIdFromClientId != null &&

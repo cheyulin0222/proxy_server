@@ -15,6 +15,10 @@ public class User {
 
     private String userId;
 
+    private String registrationId;
+
+    private String idpSub;
+
     private boolean isActive;
 
     private LocalDateTime createdAt;

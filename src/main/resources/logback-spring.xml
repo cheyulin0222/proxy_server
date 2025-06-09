@@ -137,7 +137,6 @@
         <root level="info">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="AWS_LOGS"/>
-            <appender-ref ref="DEBUG_FILE"/>
         </root>
     </springProfile>
 

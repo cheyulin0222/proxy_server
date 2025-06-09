@@ -1,6 +1,6 @@
 package com.arplanets.auth.component.spring.oidc;
 
-import com.arplanets.auth.service.TokenService;
+import com.arplanets.auth.service.persistence.impl.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +29,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.function.Consumer;
 
+/**
+ * 紀錄 Token 交換資訊
+ */
 @RequiredArgsConstructor
 @Slf4j
 public class TokenResponseHandlerImpl implements AuthenticationSuccessHandler {

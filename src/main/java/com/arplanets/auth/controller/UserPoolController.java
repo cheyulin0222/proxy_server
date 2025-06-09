@@ -1,12 +1,11 @@
 package com.arplanets.auth.controller;
 
-import com.arplanets.auth.model.UserPoolInfo;
 import com.arplanets.auth.model.dto.req.UserPoolRegisterRequest;
-import com.arplanets.auth.component.TenantRegistry;
+import com.arplanets.auth.repository.inmemory.TenantRepository;
 import com.arplanets.auth.model.po.domain.UserPool;
-import com.arplanets.auth.service.TenantJwkService;
-import com.arplanets.auth.service.UserPoolInfoService;
-import com.arplanets.auth.service.impl.ClientRegistrationService;
+import com.arplanets.auth.service.inmemory.TenantJwkService;
+import com.arplanets.auth.service.inmemory.InMemoryClientRegistrationService;
+import com.arplanets.auth.service.inmemory.UserPoolInfoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,10 +22,10 @@ import java.util.List;
 @Slf4j
 public class UserPoolController {
 
-    private final TenantRegistry tenantRegistry;
+    private final TenantRepository tenantRepository;
     private final UserPoolInfoService userPoolInfoService;
     private final TenantJwkService tenantJwkService;
-    private final ClientRegistrationService clientRegistrationService;
+    private final InMemoryClientRegistrationService inMemoryClientRegistrationService;
 
 
     @PostMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
@@ -49,14 +48,14 @@ public class UserPoolController {
             userPoolInfoService.registerUserPoolInfo(userPool);
             clientRegistrations.forEach(clientRegistration -> {
                 try {
-                    clientRegistrationService.register(userPool.getUserPoolId(), clientRegistration);
+                    inMemoryClientRegistrationService.register(userPool.getUserPoolId(), clientRegistration);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
         } catch (Exception e) {
-            tenantRegistry.remove(poolName);
-            clientRegistrationService.removeByUserPoolId(userPoolId);
+            tenantRepository.remove(poolName);
+            inMemoryClientRegistrationService.removeByUserPoolId(userPoolId);
             throw new RuntimeException(e);
         }
 
@@ -67,7 +66,7 @@ public class UserPoolController {
 
         String userPoolId = userPoolInfoService.findByPoolName(poolName).getUserPoolId();
 
-        tenantRegistry.remove(poolName);
-        clientRegistrationService.removeByUserPoolId(userPoolId);
+        tenantRepository.remove(poolName);
+        inMemoryClientRegistrationService.removeByUserPoolId(userPoolId);
     }
 }

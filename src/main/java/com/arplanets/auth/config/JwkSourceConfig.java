@@ -1,9 +1,9 @@
 package com.arplanets.auth.config;
 
-import com.arplanets.auth.component.TenantRegistry;
+import com.arplanets.auth.repository.inmemory.TenantRepository;
 import com.arplanets.auth.model.po.domain.UserPool;
-import com.arplanets.auth.repository.UserPoolRepository;
-import com.arplanets.auth.service.TenantJwkService;
+import com.arplanets.auth.repository.persistence.UserPoolRepository;
+import com.arplanets.auth.service.inmemory.TenantJwkService;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSelector;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -25,29 +25,43 @@ import java.util.List;
 @Slf4j
 public class JwkSourceConfig {
 
-    private final TenantRegistry componentRegistry;
+    private final TenantRepository tenantRepository;
     private final TenantJwkService tenantJwkService;
     private final UserPoolRepository userPoolRepository;
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        log.info("Initializing JWKSource from database...");
-        List<UserPool> userPools = userPoolRepository.findAll();
+        log.info("Starting to load JWKSource...");
 
-        userPools.forEach(userPool -> {
-            try {
-                tenantJwkService.registerUserPoolJwkSet(userPool);
-            } catch (Exception e) {
-                log.error("Failed to register JWKSet for UserPool ID: {}. Error: {}",
-                        userPool.getUserPoolId(), e.getMessage(), e);
-                throw new RuntimeException("Failed to load JWKSource from database due to UserPool JWKSet error.", e);
+        try {
+            // 查詢所有 User Pools
+            List<UserPool> userPools = userPoolRepository.findAll();
+            if (userPools == null || userPools.isEmpty()) {
+                log.error("No user pools found in the database.");
+                throw new RuntimeException("No user pools found in the database.");
             }
-        });
 
-        return new DelegatingJWKSource(componentRegistry);
+            // 註冊 JWKSets 到應用程式
+            userPools.forEach(userPool -> {
+                try {
+                    tenantJwkService.registerUserPoolJwkSet(userPool);
+                } catch (Exception e) {
+                    log.error("Failed to register JWKSet for UserPool ID: {}. Error: {}",
+                            userPool.getUserPoolId(), e.getMessage(), e);
+                    throw new RuntimeException(e);
+                }
+            });
+
+            log.info("Successfully loaded {} JWKSets.", userPools.size());
+
+            return new DelegatingJWKSource(tenantRepository);
+        } catch (Exception e) {
+            log.error("Failed to load JWKSource: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to load JWKSource");
+        }
     }
 
-    private record DelegatingJWKSource(TenantRegistry componentRegistry) implements JWKSource<SecurityContext> {
+    private record DelegatingJWKSource(TenantRepository componentRegistry) implements JWKSource<SecurityContext> {
         @Override
         public List<JWK> get(JWKSelector jwkSelector, SecurityContext securityContext) {
             // 從註冊表獲取當前租戶的 JWKSet

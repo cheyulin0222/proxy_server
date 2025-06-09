@@ -3,8 +3,7 @@ package com.arplanets.auth.filter;
 import com.arplanets.auth.model.UserPoolContext;
 import com.arplanets.auth.model.UserPoolContextHolder;
 import com.arplanets.auth.model.UserPoolInfo;
-import com.arplanets.auth.repository.UserPoolRepository;
-import com.arplanets.auth.service.UserPoolInfoSource;
+import com.arplanets.auth.service.inmemory.UserPoolInfoSource;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -45,8 +44,6 @@ public class UserPoolValidationFilter extends OncePerRequestFilter {
         String issuer = context.getIssuer();
 
         String poolName = extractPathAfterDomain(issuer);
-
-        log.info("poolName= {}", poolName);
 
         if (poolName.isBlank()) {
             log.warn("Pool name not found in issuer : {}", issuer);

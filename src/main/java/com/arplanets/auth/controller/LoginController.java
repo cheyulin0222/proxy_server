@@ -1,6 +1,6 @@
 package com.arplanets.auth.controller;
 
-import com.arplanets.auth.repository.ClientRegistrationMappingRepository;
+import com.arplanets.auth.repository.persistence.ClientRegistrationMappingRepository;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

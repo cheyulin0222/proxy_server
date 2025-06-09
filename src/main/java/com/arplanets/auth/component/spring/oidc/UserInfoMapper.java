@@ -2,8 +2,8 @@ package com.arplanets.auth.component.spring.oidc;
 
 import com.arplanets.auth.model.po.domain.ClaimMapping;
 import com.arplanets.auth.model.po.domain.UserClaim;
-import com.arplanets.auth.repository.ClaimMappingRepository;
-import com.arplanets.auth.repository.UserInfoRepository;
+import com.arplanets.auth.repository.persistence.ClaimMappingRepository;
+import com.arplanets.auth.repository.persistence.UserInfoRepository;
 import com.arplanets.auth.utils.StringUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,6 +24,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * 客製化 OIDC UserInfo 端點資訊
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j

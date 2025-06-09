@@ -14,6 +14,9 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 
+/**
+ * 讓 Spring 能夠在用戶授權時，用 Arplanet 的 User_id 來做紀錄
+ */
 @Slf4j
 public class OidcUserImpl implements OidcUser, Serializable {
 
