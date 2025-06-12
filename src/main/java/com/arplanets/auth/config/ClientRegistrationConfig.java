@@ -33,6 +33,8 @@ public class ClientRegistrationConfig {
                 throw new RuntimeException("No client registrations found in the database.");
             }
 
+            log.info("ClientRegistration.size={}", allRegistrations.size());
+
             // 註冊到應用程式
             allRegistrations.forEach(inMemoryClientRegistrationService::register);
 

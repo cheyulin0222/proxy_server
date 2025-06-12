@@ -30,7 +30,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
-import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -57,12 +56,6 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final ClientRegistrationRepository clientRegistrationRepository;
-    private final LogoutStateRepository logoutStateRepository;
-    private final ProviderLogoutService providerLogoutService;
-
-
-
     /**
      * 處理 OIDC 端點請求
      */
@@ -76,7 +69,10 @@ public class SecurityConfig {
             UserInfoMapper userInfoMapper,
             ObjectMapper objectMapper,
             UserPoolInfoSource userPoolInfoSource,
-            LogContext logContext
+            LogContext logContext,
+            ClientRegistrationRepository clientRegistrationRepository,
+            ProviderLogoutService providerLogoutService,
+            LogoutStateRepository logoutStateRepository
     ) throws Exception {
 
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
@@ -99,6 +95,7 @@ public class SecurityConfig {
                         ))
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
                 .addFilterBefore(new LoggingFilter(logContext), WebAsyncManagerIntegrationFilter.class)
                 .addFilterAfter(new UserPoolValidationFilter(userPoolInfoSource, objectMapper), HeaderWriterFilter.class);
 
@@ -106,148 +103,23 @@ public class SecurityConfig {
 
     }
 
-//    /**
-//     * 處理 OIDC 端點請求
-//     */
-//    @Bean
-//    @Order(1)
-//    public SecurityFilterChain oidcSecurityFilterChain(
-//            HttpSecurity http,
-//            TokenService tokenService,
-//            AuthActivityService authActivityService,
-//            OAuth2AuthorizationService authorizationService,
-//            UserInfoMapper userInfoMapper,
-//            ObjectMapper objectMapper,
-//            UserPoolInfoSource userPoolInfoSource,
-//            LogContext logContext,
-//            ClientRegistrationRepository clientRegistrationRepository,
-//            LogoutStateRepository logoutStateRepository,
-//            UpstreamOidcLogoutService upstreamOidcLogoutService
-//    ) throws Exception {
-//
-//        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-//
-//        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-//                .authorizationEndpoint(authorizationEndpoint -> authorizationEndpoint
-//                        .authorizationResponseHandler(new AuthorizationSuccessHandlerImpl(authActivityService, authorizationService)))
-//                .tokenEndpoint(tokenEndpoint -> tokenEndpoint
-//                        .accessTokenResponseHandler(new TokenResponseHandlerImpl(tokenService, authorizationService)))
-//                .oidc(oidc -> oidc
-//                        .providerConfigurationEndpoint(Customizer.withDefaults())
-//                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
-//                                .userInfoMapper(userInfoMapper))
-//                        .logoutEndpoint(logoutEndpoint -> logoutEndpoint
-//                                .logoutResponseHandler(new LogoutSuccessHandlerImpl(
-//                                        authActivityService,
-//                                        authorizationService,
-//                                        clientRegistrationRepository,
-//                                        logoutStateRepository,
-//                                        upstreamOidcLogoutService
-//                                        ))));
-//        http.exceptionHandling(exceptions -> exceptions
-//                .defaultAuthenticationEntryPointFor(
-//                    new LoginUrlAuthenticationEntryPoint(StringUtil.LOGIN_PATH),
-//                    new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
-//                ))
-//            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
-//            .csrf(AbstractHttpConfigurer::disable)
-//            .addFilterBefore(new LoggingFilter(logContext), WebAsyncManagerIntegrationFilter.class)
-//            .addFilterAfter(new UserPoolValidationFilter(userPoolInfoSource, objectMapper), HeaderWriterFilter.class);
-//
-//        return http.build();
-//
-//    }
-
-    /**
-     * 處理 Provider Redirect
-     */
-    @Bean
-    @Order(2)
-    public SecurityFilterChain logoutFilterChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/logout/callback")
-            .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-            .csrf(AbstractHttpConfigurer::disable);
-        return http.build();
-    }
-
-//    /**
-//     * 處理 OAuth2 請求
-//     */
-//    @Bean
-//    @Order(3)
-//    public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, InMemoryClientRegistrationService inMemoryClientRegistrationService, RegisteredClientPersistentRepository registeredClientPersistentRepository) throws Exception {
-//        http.authorizeHttpRequests(authorize -> authorize
-//                        .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
-//                        .anyRequest().authenticated())
-//                // 當請求來源於瀏覽器，(且無 Authorization: Bearer <TOKEN>)時走
-//                .oauth2Login(oauth2 -> oauth2
-//                        .loginPage(StringUtil.LOGIN_PATH))
-//                .logout(logout -> logout
-//                        // 當用戶點擊你應用程式的登出按鈕時，會觸發這個 logoutSuccessHandler
-//                        // 這個 Handler 會發起對上游 OIDC Provider 的登出
-//                        .logoutSuccessHandler(oidcClientInitiatedLogoutSuccessHandler())
-//                        // 這會處理本地會話的清除
-//                        .deleteCookies("JSESSIONID") // 範例，根據你實際的 Cookie 名稱
-//                        .invalidateHttpSession(true))
-//                .addFilterBefore(new RegistrationIdValidationFilter(inMemoryClientRegistrationService, registeredClientPersistentRepository), OAuth2AuthorizationRequestRedirectFilter.class);
-//
-//        return http.build();
-//    }
-
     /**
      * 處理 OAuth2 請求
      */
     @Bean
-    @Order(3)
+    @Order(2)
     public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, InMemoryClientRegistrationService inMemoryClientRegistrationService, RegisteredClientPersistentRepository registeredClientPersistentRepository) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
+                .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.LOGOUT_CALLBACK_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
                         .anyRequest().authenticated())
             // 當請求來源於瀏覽器，(且無 Authorization: Bearer <TOKEN>)時走
             .oauth2Login(oauth2 -> oauth2
                     .loginPage(StringUtil.LOGIN_PATH))
+            .cors(Customizer.withDefaults())
             .addFilterBefore(new RegistrationIdValidationFilter(inMemoryClientRegistrationService, registeredClientPersistentRepository), OAuth2AuthorizationRequestRedirectFilter.class);
 
         return http.build();
     }
-
-//    /**
-//     * 處理請求
-//     */
-//    @Bean
-//    @Order(3)
-//    public SecurityFilterChain resourceFilterChain(HttpSecurity http) throws Exception {
-//        http.securityMatcher("/resource/**")
-//            .authorizeHttpRequests(authorize -> authorize
-//                    .anyRequest().authenticated())
-//            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
-//
-//        return http.build();
-//    }
-
-    // 這個 Bean 負責處理從你的應用程式到上游 OIDC Provider 的登出
-    @Bean
-    public OidcClientInitiatedLogoutSuccessHandler oidcClientInitiatedLogoutSuccessHandler() {
-        OidcClientInitiatedLogoutSuccessHandler logoutSuccessHandler =
-                new OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository);
-
-        // 設定回調 URL，上游 Provider 登出後會重定向到你的應用程式
-        // 這個 URL 應該是你的應用程式公開可訪問的端點，並被配置為上游 Provider 的 `post_logout_redirect_uri`
-        // 為了將來能夠重定向到 Client 的 post_logout_url，這個回調路徑必須是能識別到 Client 的上下文，
-        // 或者在這個回調路徑上接收並保存 Client 的 post_logout_url。
-        // 最簡單的方法是讓這個回調路徑指向你自己的 OIDC Provider Proxy 的登出處理端點
-        // 也就是你的 LogoutSuccessHandlerImpl 所處理的端點。
-        logoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}/connect/logout/callback"); // 假設這是你的 Provider Proxy 回調路徑
-        return logoutSuccessHandler;
-    }
-
-    // 你的 LogoutSuccessHandlerImpl 保持不變，它處理來自你上游 OIDC Provider 的回調
-    // 並最終重定向到你的前端 Client 提供的 post_logout_url
-    // 注意：這個 LogoutSuccessHandlerImpl 是用於處理 OIDC Provider 端點的 logoutResponseHandler，
-    // 它接收的是 OIDC Logout Authentication Token。
-    // 在這個情境下，它會被你的應用程式的 OIDC Provider 角色所使用。
-    // 當上游 OIDC Provider 登出後，會重定向回你這裡，這個 handler 會被觸發。
-    // 這個 handler 拿到 OidcLogoutAuthenticationToken 之後，再從中取出 Client 的 post_logout_redirect_uri 進行重定向。
 
     /**
      * JWT 解碼器
@@ -274,8 +146,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-
 
     /**
      * oauth2_authorization_consent 資料表的讀取和寫入
@@ -321,13 +191,4 @@ public class SecurityConfig {
         return authorizationService;
     }
 
-//    @Bean
-//    public SessionRegistry sessionRegistry() {
-//        return new SessionRegistryImpl();
-//    }
-//
-//    @Bean
-//    public static HttpSessionEventPublisher httpSessionEventPublisher() {
-//        return new HttpSessionEventPublisher();
-//    }
 }

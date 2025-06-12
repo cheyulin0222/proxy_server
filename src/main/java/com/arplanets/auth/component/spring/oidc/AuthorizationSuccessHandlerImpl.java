@@ -38,70 +38,63 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
 
-        OAuth2AuthorizationCodeRequestAuthenticationToken authorizationCodeRequestAuthentication;
-        HttpSession currentAuthenticatedSession = null;
-        String currentSessionId = null;
-
         try {
-            if (!(authentication instanceof OAuth2AuthorizationCodeRequestAuthenticationToken)) {
-                log.error("Authentication token is not OAuth2AuthorizationCodeRequestAuthenticationToken: {}", authentication.getClass().getName());
-                throw new IllegalStateException("Unexpected authentication token type.");
-            }
+            OAuth2AuthorizationCodeRequestAuthenticationToken authenticationToken = (OAuth2AuthorizationCodeRequestAuthenticationToken) authentication;
 
-            authorizationCodeRequestAuthentication = (OAuth2AuthorizationCodeRequestAuthenticationToken) authentication;
+            // 取得 Authorization Code
+            String authorizationCode = getAuthorizationCode(authenticationToken);
 
-            // 取得 Code
-            String authorizationCode = Objects.requireNonNull(
-                    authorizationCodeRequestAuthentication.getAuthorizationCode(),
-                    "Authorization Code cannot be null after successful authentication."
-            ).getTokenValue();
+            // 紀錄登入狀態，以及儲存 Session ID (登出用)
+            updateAndSaveAuthorization(request, authorizationCode);
 
-            // 取得 SessionId
-            currentAuthenticatedSession = request.getSession(false);
-            if (currentAuthenticatedSession != null) {
-                currentSessionId = currentAuthenticatedSession.getId();
-            }
+            // 導轉
+            redirectToClient(request, response, authenticationToken, authorizationCode);
 
-            log.debug("Session ID after code generation: {}", currentSessionId);
-
-            // 取得當前授權資料
-            OAuth2Authorization authorization = authorizationService.findByToken(
-                    authorizationCode, new OAuth2TokenType(StringUtil.CODE));
-
-            if (authorization != null) {
-                authorization = OAuth2Authorization.from(authorization)
-                        .attribute("authenticated_session_id", currentSessionId)
-                        .build();
-
-                // 儲存 SessionId 用於登出
-                authorizationService.save(authorization);
-                // 記錄登入狀態
-                authActivityService.save(authorization, request, AuthAction.LOGIN);
-
-            } else {
-                log.error("OAuth2Authorization not found for code '{}' during login activity logging. This might indicate an issue with the authorization flow.", authorizationCode);
-            }
         } catch (Exception e) {
-            log.warn("Failed to log login activity or update OAuth2Authorization due to an exception. Continuing with redirect.", e);
-            throw e;
-        } finally {
-            if (currentAuthenticatedSession != null) {
-                currentAuthenticatedSession.removeAttribute("UPSTREAM_ID_TOKEN");
-                log.debug("Removed 'UPSTREAM_ID_TOKEN' from session in finally block.");
-            } else {
-                log.debug("No active session available to remove 'UPSTREAM_ID_TOKEN' from in finally block.");
-            }
+            log.error("Error during authentication success handling.", e);
+            throw new IOException("Failed to handle authentication success.", e);
         }
+    }
 
-        // Get the redirect URI from the authentication request.
+    /**
+     * 紀錄登入狀態，以及儲存 Session ID (登出用)
+     */
+    private void updateAndSaveAuthorization(HttpServletRequest request, String authorizationCode) {
+
+        // 取得授權資料
+        OAuth2Authorization authorization = authorizationService.findByToken(
+                authorizationCode, new OAuth2TokenType(StringUtil.CODE));
+
+        if (authorization != null) {
+
+            // 儲存 Session ID 資料
+            authorization = OAuth2Authorization.from(authorization)
+                    .attribute(StringUtil.AUTH_SESSION_ID, getSessionId(request))
+                    .build();
+            authorizationService.save(authorization);
+
+            // 紀錄登入狀態
+            authActivityService.save(authorization, request, AuthAction.LOGIN);
+        } else {
+            log.warn("OAuth2Authorization not found during login activity logging. This might indicate an issue with the authorization flow.");
+        }
+    }
+
+    private void redirectToClient(HttpServletRequest request, HttpServletResponse response,
+                                  OAuth2AuthorizationCodeRequestAuthenticationToken authorizationCodeRequestAuthentication,
+                                  String authorizationCode) throws IOException {
+
+        // 取得路徑
         String redirectUri = Objects.requireNonNull(
                 authorizationCodeRequestAuthentication.getRedirectUri(),
                 "Redirect URI cannot be null for successful authorization."
         );
 
+        // 帶入 Code 參數
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("code", authorizationCodeRequestAuthentication.getAuthorizationCode().getTokenValue());
+                .queryParam(StringUtil.CODE, authorizationCode);
 
+        // 帶入 State 參數
         if (StringUtils.hasText(authorizationCodeRequestAuthentication.getState())) {
             uriBuilder.queryParam(StringUtil.STATE,
                     UriUtils.encode(authorizationCodeRequestAuthentication.getState(), StandardCharsets.UTF_8));
@@ -109,7 +102,21 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
 
         String finalRedirectUri = uriBuilder.build(true).toUriString();
 
-        log.debug("Redirecting to client application: {}", finalRedirectUri);
+        log.info("Redirecting to client application: {}", redirectUri);
         this.redirectStrategy.sendRedirect(request, response, finalRedirectUri);
+    }
+
+    private String getAuthorizationCode(OAuth2AuthorizationCodeRequestAuthenticationToken authenticationToken) {
+        return Objects.requireNonNull(
+                authenticationToken.getAuthorizationCode(),
+                "Authorization Code cannot be null after successful authentication."
+        ).getTokenValue();
+    }
+
+    private String getSessionId(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        String sessionId = (session != null) ? session.getId() : null;
+        log.debug("Session ID after code generation: {}", sessionId);
+        return sessionId;
     }
 }

@@ -1,5 +1,6 @@
 package com.arplanets.auth.component.spring.oidc;
 
+import com.arplanets.auth.utils.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -50,20 +51,17 @@ public class CustomOAuth2TokenCustomizer implements OAuth2TokenCustomizer<JwtEnc
         if (authentication == null) {
             return;
         }
-
-        log.debug("Customizing ACCESS Token for principal: {}", authentication.getName());
-
         if (context.getAuthorization() != null) {
             // 添加 registration_id
             if (authentication instanceof OAuth2AuthenticationToken oauth2Token) {
                 if (oauth2Token.getAuthorizedClientRegistrationId() != null) {
-                    context.getClaims().claim("registration_id", oauth2Token.getAuthorizedClientRegistrationId());
+                    context.getClaims().claim(StringUtil.REGISTRATION_ID_ATTRIBUTE_NAME, oauth2Token.getAuthorizedClientRegistrationId());
                 }
             }
 
-            // 添加 auth_session_id
+            // 添加 auth_id
             if (context.getAuthorization().getId() != null) {
-                context.getClaims().claim("auth_session_id", context.getAuthorization().getId());
+                context.getClaims().claim(StringUtil.AUTH_ID, context.getAuthorization().getId());
             }
         }
     }
@@ -72,23 +70,18 @@ public class CustomOAuth2TokenCustomizer implements OAuth2TokenCustomizer<JwtEnc
         if (authentication == null) {
             return;
         }
-
-        log.debug("Customizing ID Token for principal: {}", authentication.getName());
-
         String sessionId = null;
 
         if (context.getAuthorization() != null) {
-            sessionId = context.getAuthorization().getAttribute("authenticated_session_id");
-            log.debug("Retrieved 'authenticated_session_id' from OAuth2Authorization: {}", sessionId);
+            sessionId = context.getAuthorization().getAttribute(StringUtil.AUTH_SESSION_ID);
         }
 
-        log.debug("sessionId from OAuth2Authorization details={}", sessionId);
 
+        // 添加 sid
         if (sessionId != null) {
             try {
                 String sessionHash = createHash(sessionId);
-                log.debug("sessionHash={}", sessionHash);
-                context.getClaims().claim("sid", sessionHash);
+                context.getClaims().claim(StringUtil.SID_CLAIM_NAME, sessionHash);
             } catch (NoSuchAlgorithmException e) {
                 log.error("Failed to compute hash for Session ID: {}", e.getMessage());
             }
@@ -97,10 +90,6 @@ public class CustomOAuth2TokenCustomizer implements OAuth2TokenCustomizer<JwtEnc
     }
 
     private void customizeRefreshToken(JwtEncodingContext context, Authentication authentication) {
-        // 這裡可以添加 Refresh Token 的獨有 Claims
-        // 範例：如果 Refresh Token 也有需要添加的特定 Claims
-        // context.getClaims().claim("refresh_token_specific_claim", "value");
-        log.debug("Customizing Refresh Token for principal: {}", authentication != null ? authentication.getName() : "anonymous");
     }
 
     private String createHash(String value) throws NoSuchAlgorithmException {

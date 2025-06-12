@@ -56,7 +56,12 @@ public class RegisteredClientPersistentRepositoryJdbcImpl implements RegisteredC
         if (existingClient!= null) {
             update(registeredClient);
         } else {
-            insert(registeredClient);
+            RegisteredClient existingClientByClientId = findByClientId(registeredClient.getClientId());
+            if (existingClientByClientId != null) {
+                throw new IllegalArgumentException("A client with client_id '" + registeredClient.getClientId() + "' already exists for user pool '" + getCurrentUserPoolId() + "'.");
+            } else {
+                insert(registeredClient);
+            }
         }
     }
 
