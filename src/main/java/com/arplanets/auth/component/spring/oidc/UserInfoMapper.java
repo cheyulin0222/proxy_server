@@ -144,7 +144,7 @@ public class UserInfoMapper implements Function<OidcUserInfoAuthenticationContex
 
     private Map<String, Object> buildSingleClaim(String sub) {
         Map<String, Object> finalClaims = new LinkedHashMap<>();
-        finalClaims.put("sub", sub);
+        finalClaims.put(StringUtil.SUB_CLAIM_NAME, sub);
         return finalClaims;
     }
 

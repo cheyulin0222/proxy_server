@@ -8,7 +8,7 @@ public interface UserRepository {
 
     Optional<User> findById(String uid);
 
-    Optional<User> findByRegistrationIdAndIdpSub(String registrationId, String idpSub);
+    Optional<User> findByRegistrationIdAndUuid(String registrationId, String uuid);
 
     User insert(User user);
 

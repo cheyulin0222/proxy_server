@@ -15,6 +15,8 @@ public class StringUtil {
     public static String AUTH_SESSION_ID = "authenticated_session_id";
     public static String AUTH_ID = "auth_id";
     public static String SID_CLAIM_NAME = "sid";
+    public static String SUB_CLAIM_NAME = "sub";
+    public static String UUID_CLAIM_NAME = "uuid";
     public static String END_SESSION_ENDPOINT_ATTR_NAME = "end_session_endpoint";
     public static String ID_TOKEN_HINT_PARAM_NAME = "id_token_hint";
     public static String POST_LOGOUT_REDIRECT_URI_PARAM_NAME = "post_logout_redirect_uri";

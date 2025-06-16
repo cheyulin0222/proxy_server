@@ -17,7 +17,7 @@ public class User {
 
     private String registrationId;
 
-    private String idpSub;
+    private String uuid;
 
     private boolean isActive;
 

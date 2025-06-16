@@ -20,9 +20,9 @@ public class UserRepositoryJdbcImpl implements UserRepository {
 
     @Override
     public User insert(User user) {
-        String sql = "INSERT INTO user (user_id, registration_id, idp_sub) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO user (user_id, registration_id, uuid) VALUES (?, ?, ?)";
 
-        jdbcTemplate.update(sql, user.getUserId(), user.getRegistrationId(), user.getIdpSub());
+        jdbcTemplate.update(sql, user.getUserId(), user.getRegistrationId(), user.getUuid());
 
         Optional<User> option = findById(user.getUserId());
 
@@ -42,10 +42,10 @@ public class UserRepositoryJdbcImpl implements UserRepository {
     }
 
     @Override
-    public Optional<User> findByRegistrationIdAndIdpSub(String registrationId, String idpSub) {
-        String sql = "SELECT * FROM user WHERE registration_id = ? AND idp_sub = ?";
+    public Optional<User> findByRegistrationIdAndUuid(String registrationId, String uuid) {
+        String sql = "SELECT * FROM user WHERE registration_id = ? AND uuid = ?";
         try {
-            User user = jdbcTemplate.queryForObject(sql, new UserRepositoryJdbcImpl.UserRowMapper(), registrationId, idpSub);
+            User user = jdbcTemplate.queryForObject(sql, new UserRepositoryJdbcImpl.UserRowMapper(), registrationId, uuid);
             return Optional.ofNullable(user);
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
@@ -59,7 +59,7 @@ public class UserRepositoryJdbcImpl implements UserRepository {
             return User.builder()
                     .userId(rs.getString("user_id"))
                     .registrationId(rs.getString("registration_id"))
-                    .idpSub(rs.getString("idp_sub"))
+                    .uuid(rs.getString("uuid"))
                     .isActive(rs.getBoolean("is_active")) // 假设数据库中有 is_active 列
                     .createdAt(rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : null)
                     .updatedAt(rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toLocalDateTime() : null)
