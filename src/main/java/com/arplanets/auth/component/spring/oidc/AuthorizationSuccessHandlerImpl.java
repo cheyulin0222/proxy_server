@@ -1,5 +1,7 @@
 package com.arplanets.auth.component.spring.oidc;
 
+import com.arplanets.auth.log.ErrorType;
+import com.arplanets.auth.log.Logger;
 import com.arplanets.auth.model.enums.AuthAction;
 import com.arplanets.auth.service.persistence.impl.AuthActivityService;
 import com.arplanets.auth.utils.StringUtil;
@@ -22,6 +24,8 @@ import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -37,7 +41,6 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
-
         try {
             OAuth2AuthorizationCodeRequestAuthenticationToken authenticationToken = (OAuth2AuthorizationCodeRequestAuthenticationToken) authentication;
 
@@ -51,7 +54,7 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
             redirectToClient(request, response, authenticationToken, authorizationCode);
 
         } catch (Exception e) {
-            log.error("Error during authentication success handling.", e);
+            Logger.error("Error during authentication success handling.", ErrorType.SYSTEM, e);
             throw new IOException("Failed to handle authentication success.", e);
         }
     }
@@ -66,6 +69,8 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
                 authorizationCode, new OAuth2TokenType(StringUtil.CODE));
 
         if (authorization != null) {
+            // 紀錄登入狀態
+            Logger.info("login.success", authActivityService.getAuthContext(authorization, request, AuthAction.LOGIN));
 
             // 儲存 Session ID 資料
             authorization = OAuth2Authorization.from(authorization)
@@ -74,9 +79,9 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
             authorizationService.save(authorization);
 
             // 紀錄登入狀態
-            authActivityService.save(authorization, request, AuthAction.LOGIN);
+//            authActivityService.save(authorization, request, AuthAction.LOGIN);
         } else {
-            log.warn("OAuth2Authorization not found during login activity logging. This might indicate an issue with the authorization flow.");
+            Logger.error("OAuth2Authorization not found during update Authorization.", ErrorType.SYSTEM);
         }
     }
 
@@ -102,8 +107,11 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
 
         String finalRedirectUri = uriBuilder.build(true).toUriString();
 
-        log.info("Redirecting to client application: {}", redirectUri);
+
         this.redirectStrategy.sendRedirect(request, response, finalRedirectUri);
+
+        Logger.info("login.redirect.success", getRedirectContext(finalRedirectUri));
+
     }
 
     private String getAuthorizationCode(OAuth2AuthorizationCodeRequestAuthenticationToken authenticationToken) {
@@ -115,8 +123,12 @@ public class AuthorizationSuccessHandlerImpl implements AuthenticationSuccessHan
 
     private String getSessionId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        String sessionId = (session != null) ? session.getId() : null;
-        log.debug("Session ID after code generation: {}", sessionId);
-        return sessionId;
+        return (session != null) ? session.getId() : null;
+    }
+
+    private Map<String, Object> getRedirectContext(String redirectUri) {
+        HashMap<String, Object> context = new HashMap<>();
+        context.put("redirectUri", redirectUri);
+        return context;
     }
 }

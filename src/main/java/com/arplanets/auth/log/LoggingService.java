@@ -21,11 +21,22 @@ public class LoggingService {
     private final ObjectMapper objectMapper;
 
     public void info(String message) {
-        log(LogLevel.INFO, message, null, null);
+        executeLogging(() -> log(LogLevel.INFO, message, null, null), message);
     }
 
+
+
     public void info(String message, Map<String, Object> context) {
-        log(LogLevel.INFO, message, context, null);
+        executeLogging(() -> log(LogLevel.INFO, message, context, null), message);
+
+    }
+
+    public void warn(String message) {
+        executeLogging(() -> log(LogLevel.WARN, message, null, null), message);
+    }
+
+    public void error(String message) {
+        executeLogging(() -> log(LogLevel.ERROR, message, null, null), message);
     }
 
     public void error(String message, ErrorType errorType) {
@@ -34,8 +45,10 @@ public class LoggingService {
                 .errorType(errorType)
                 .build();
 
-        log(LogLevel.ERROR, message,null, errorData);
+        executeLogging(() -> log(LogLevel.ERROR, message, null, errorData), message);
     }
+
+
 
     public void error(String message, ErrorType errorType, Map<String, Object> context) {
         ErrorData errorData = ErrorData.builder()
@@ -43,7 +56,7 @@ public class LoggingService {
                 .errorType(errorType)
                 .build();
 
-        log(LogLevel.ERROR, message, context, errorData);
+        executeLogging(() -> log(LogLevel.ERROR, message, context, errorData), message);
     }
 
     public void error(String message, ErrorType errorType, Throwable error) {
@@ -53,7 +66,7 @@ public class LoggingService {
                 .stackTrace(Arrays.toString(error.getStackTrace()))
                 .build();
 
-        log(LogLevel.ERROR, message,null, errorData);
+        executeLogging(() -> log(LogLevel.ERROR, message, null, errorData), message);
     }
 
     public void error(String message, ErrorType errorType, Throwable error, Map<String, Object> context) {
@@ -63,7 +76,7 @@ public class LoggingService {
                 .stackTrace(Arrays.toString(error.getStackTrace()))
                 .build();
 
-        log(LogLevel.ERROR, message, context, errorData);
+        executeLogging(() -> log(LogLevel.ERROR, message, context, errorData), message);
     }
 
     private void log(LogLevel level, String message, Map<String, Object> context, ErrorData errorData) {
@@ -92,31 +105,22 @@ public class LoggingService {
                     .build();
 
             String jsonLog = objectMapper.writeValueAsString(logMessage);
-            boolean enableMessageLogging = "dev".equals(logContext.getActiveProfile()) || "test".equals(logContext.getActiveProfile());
-
 
             switch (level) {
-                case INFO -> {
-                    if (enableMessageLogging) {
-                        log.info("{}", message);
-                    }
-                    log.info("{}", jsonLog);
-                }
-                case ERROR -> {
-                    if (enableMessageLogging) {
-                        log.error("{}", message);
-                    }
-                    log.error("{}", jsonLog);
-                }
-                default -> {
-                    if (enableMessageLogging) {
-                        log.debug("{}", message);
-                    }
-                    log.debug("{}", jsonLog);
-                }
+                case INFO -> log.info("{}", jsonLog);
+                case ERROR -> log.error("{}", jsonLog);
+                default -> log.debug("{}", jsonLog);
             }
         } catch (JsonProcessingException e) {
             log.error("Error creating JSON log");
+        }
+    }
+
+    private void executeLogging(Runnable loggingAction, String originalMessage) {
+        try {
+            loggingAction.run();
+        } catch (Exception e) {
+            log.warn("Failed to process and log message: '{}'", originalMessage, e);
         }
     }
 }

@@ -1,7 +1,6 @@
-package com.arplanets.auth.repository.persistence.impl.jdbc;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.po.domain.AuthActivity;
-import com.arplanets.auth.repository.persistence.AuthActivityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -23,7 +22,7 @@ public class AuthActivityRepositoryJdbcImpl implements AuthActivityRepository {
 
         jdbcTemplate.update(
                 sql,
-                authActivity.getAuthSessionId(),
+                authActivity.getAuthId(),
                 authActivity.getRefreshTokenValue(),
                 authActivity.getAccessTokenValue(),
                 authActivity.getUserId(),

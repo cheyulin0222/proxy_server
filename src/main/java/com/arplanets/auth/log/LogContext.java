@@ -1,5 +1,7 @@
 package com.arplanets.auth.log;
 
+import com.arplanets.auth.model.RequestContext;
+import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -7,10 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -40,25 +38,29 @@ public class LogContext {
     }
 
     public String getRequestId() {
-        return (String) request.getAttribute("requestId");
+        if (request != null && request.getAttribute("requestContext") != null) {
+            RequestContext requestContext = (RequestContext) request.getAttribute("requestContext");
+            return requestContext.getRequestId();
+        }
+        return null;
     }
 
     public String getLogSn() {
-        return generateId("log");
+        return StringUtil.generateId("log");
     }
 
     public String getMethod() {
-        return request.getMethod();
+        return (request != null) ? request.getMethod() : null;
     }
 
     public String getURI() {
-        return request.getRequestURI();
+        return (request != null) ? request.getRequestURI() : null;
     }
 
     public String getClassName() {
         return StackWalker.getInstance()
                 .walk(frames -> frames
-                        .skip(4)
+                        .skip(6)
                         .findFirst()
                         .map(StackWalker.StackFrame::getClassName)
                         .orElse("Unknown"));
@@ -67,17 +69,10 @@ public class LogContext {
     public String getMethodName() {
         return StackWalker.getInstance()
                 .walk(frames -> frames
-                        .skip(4)
+                        .skip(6)
                         .findFirst()
                         .map(StackWalker.StackFrame::getMethodName)
                         .orElse("Unknown"));
     }
 
-    public String generateId(String prefix) {
-        ZoneId taipeiZone = ZoneId.of("Asia/Taipei");
-        String timestamp = LocalDateTime.now(taipeiZone)
-                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-
-        return "%s-%s-%s-%s".formatted(prefix, getProjectId(), timestamp, UUID.randomUUID().toString());
-    }
 }

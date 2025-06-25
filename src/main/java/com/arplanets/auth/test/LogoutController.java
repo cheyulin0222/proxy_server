@@ -1,7 +1,6 @@
-package com.arplanets.auth.controller;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.LogoutRequestAttributes;
-import com.arplanets.auth.repository.inmemory.LogoutStateRepository;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,7 +19,7 @@ import java.io.IOException;
 /**
  * 處理 Provider 登出後，導轉回 Client 指定頁面
  */
-@Controller
+//@Controller
 @RequiredArgsConstructor
 @Slf4j
 public class LogoutController {

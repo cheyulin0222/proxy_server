@@ -1,4 +1,4 @@
-package com.arplanets.auth.repository.persistence;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.po.domain.AccessToken;
 

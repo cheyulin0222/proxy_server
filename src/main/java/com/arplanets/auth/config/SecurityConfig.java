@@ -10,7 +10,6 @@ import com.arplanets.auth.service.inmemory.InMemoryClientRegistrationService;
 import com.arplanets.auth.service.inmemory.UserPoolInfoSource;
 import com.arplanets.auth.service.persistence.impl.AuthActivityService;
 import com.arplanets.auth.service.persistence.impl.TokenService;
-import com.arplanets.auth.repository.inmemory.LogoutStateRepository;
 import com.arplanets.auth.service.ProviderLogoutService;
 import com.arplanets.auth.utils.StringUtil;
 import com.fasterxml.jackson.databind.*;
@@ -18,6 +17,7 @@ import com.fasterxml.jackson.databind.Module;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -56,6 +56,9 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${aws.cloudwatch.log-stream-prefix}")
+    private String logStreamPrefix;
+
     /**
      * 處理 OIDC 端點請求
      */
@@ -71,8 +74,7 @@ public class SecurityConfig {
             UserPoolInfoSource userPoolInfoSource,
             LogContext logContext,
             ClientRegistrationRepository clientRegistrationRepository,
-            ProviderLogoutService providerLogoutService,
-            LogoutStateRepository logoutStateRepository
+            ProviderLogoutService providerLogoutService
     ) throws Exception {
 
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
@@ -82,12 +84,14 @@ public class SecurityConfig {
                         .authorizationResponseHandler(new AuthorizationSuccessHandlerImpl(authActivityService, authorizationService)))
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenResponseHandler(new TokenResponseHandlerImpl(tokenService, authorizationService)))
+                .tokenRevocationEndpoint(revokeEndpoint -> revokeEndpoint
+                        .revocationResponseHandler(new RevocationResponseHandlerImpl(authorizationService)))
                 .oidc(oidc -> oidc
                         .providerConfigurationEndpoint(Customizer.withDefaults())
                         .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
                                 .userInfoMapper(userInfoMapper))
                         .logoutEndpoint(logoutEndpoint -> logoutEndpoint
-                                .logoutResponseHandler(new LogoutSuccessHandlerImpl(authActivityService, authorizationService, clientRegistrationRepository, logoutStateRepository, providerLogoutService))));
+                                .logoutResponseHandler(new LogoutSuccessHandlerImpl(authActivityService, authorizationService, clientRegistrationRepository, providerLogoutService))));
         http.exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
                                 new LoginUrlAuthenticationEntryPoint(StringUtil.LOGIN_PATH),
@@ -96,7 +100,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .addFilterBefore(new LoggingFilter(logContext), WebAsyncManagerIntegrationFilter.class)
+                .addFilterBefore(new LoggingFilter(logStreamPrefix), WebAsyncManagerIntegrationFilter.class)
                 .addFilterAfter(new UserPoolValidationFilter(userPoolInfoSource, objectMapper), HeaderWriterFilter.class);
 
         return http.build();
@@ -110,7 +114,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http, InMemoryClientRegistrationService inMemoryClientRegistrationService, RegisteredClientPersistentRepository registeredClientPersistentRepository) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.LOGOUT_CALLBACK_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
+                .requestMatchers(StringUtil.LOGIN_PATH, StringUtil.FAVICON_PATH, StringUtil.ERROR_PATH).permitAll()
                         .anyRequest().authenticated())
             // 當請求來源於瀏覽器，(且無 Authorization: Bearer <TOKEN>)時走
             .oauth2Login(oauth2 -> oauth2
@@ -167,15 +171,16 @@ public class SecurityConfig {
 
         List<Module> securityModules  = SecurityJackson2Modules.getModules(classLoader);
 
-        // 2. 配置 RowMapper (用於讀取/反序列化)
-        JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper rowMapper =
-                new JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper(clientRepository);
-
         // 一定要 new 一個，用注入的會有問題!!!
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModules(securityModules);
         objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
         objectMapper.addMixIn(OidcUserImpl.class, OidcUserImplWrapperMixin.class);
+        objectMapper.addMixIn(com.nimbusds.jose.shaded.gson.internal.LinkedTreeMap.class, LinkedTreeMapMixIn.class);
+
+        // 2. 配置 RowMapper (用於讀取/反序列化)
+        JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper rowMapper =
+                new JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper(clientRepository);
 
         rowMapper.setObjectMapper(objectMapper);
 

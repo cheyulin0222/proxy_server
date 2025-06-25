@@ -18,6 +18,14 @@ public class Logger {
         loggingService.info(message, context);
     }
 
+    public static void warn(String message) {
+        loggingService.warn(message);
+    }
+
+    public static void error(String message) {
+        loggingService.error(message);
+    }
+
     public static void error(String message, ErrorType errorType) {
         loggingService.error(message, errorType);
     }

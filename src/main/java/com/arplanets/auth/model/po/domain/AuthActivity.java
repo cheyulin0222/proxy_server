@@ -1,5 +1,6 @@
 package com.arplanets.auth.model.po.domain;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +14,7 @@ import java.time.Instant;
 @NoArgsConstructor
 public class AuthActivity {
 
-    private String authSessionId;
+    private String authId;
 
     private String refreshTokenValue;
 
@@ -31,6 +32,7 @@ public class AuthActivity {
 
     private String osVersion;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "Asia/Taipei")
     private Instant createdAt;
 
 }

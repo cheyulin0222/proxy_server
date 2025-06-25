@@ -1,8 +1,9 @@
 package com.arplanets.auth.component.spring.oidc;
 
+import com.arplanets.auth.log.ErrorType;
+import com.arplanets.auth.log.Logger;
 import com.arplanets.auth.model.enums.AuthAction;
 import com.arplanets.auth.service.persistence.impl.AuthActivityService;
-import com.arplanets.auth.repository.inmemory.LogoutStateRepository;
 import com.arplanets.auth.service.ProviderLogoutService;
 import com.arplanets.auth.utils.StringUtil;
 import jakarta.servlet.ServletException;
@@ -25,6 +26,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuccessHandler;
+import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
@@ -32,6 +34,7 @@ import org.springframework.web.util.UriUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -45,7 +48,6 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
     private final AuthActivityService authActivityService;
     private final OAuth2AuthorizationService authorizationService;
     private final ClientRegistrationRepository clientRegistrationRepository;
-    private final LogoutStateRepository logoutStateRepository;
     private final ProviderLogoutService providerLogoutService;
 
     private final LogoutHandler logoutHandler = new SecurityContextLogoutHandler() {{
@@ -64,7 +66,9 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
             // 取得授權資料
             OAuth2Authorization authorization = getOAuth2Authorization(oidcLogoutAuthentication);
 
-            // 清理授權數據，紀錄登出活動
+            Logger.info("logout.success", authActivityService.getAuthContext(authorization, request, AuthAction.LOGOUT));
+
+            // 清理授權數據
             logLogoutActivityAndRemoveAuthorization(request, authorization);
 
             // 嘗試發起對上游 OIDC Provider 的登出
@@ -83,38 +87,65 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
     private void redirect(HttpServletRequest request, HttpServletResponse response, OidcLogoutAuthenticationToken oidcLogoutAuthentication, OAuth2Authorization authorization) throws ServletException, IOException {
 
         try {
-            // 取得 redirectUri
-            String redirectUri = getRedirectUri(oidcLogoutAuthentication);
-
-            // 生成 state 並儲存到 Local
-            String state = logoutStateRepository.saveLogoutRequest(redirectUri);
-
-            // 取得 ClientRegistrationId
-            String clientRegistrationId = getClientRegistrationId(authorization);
+            // 取得 ClientRegistration
+            ClientRegistration clientRegistration = getClientRegistration(authorization);
+            Assert.notNull(clientRegistration, "Failed to get ClientRegistration.");
 
             // 取得 Provider Session Endpoint
-            String endSessionEndpoint = getProviderEndSessionEndpoint(clientRegistrationId);
+            String endSessionEndpoint = getProviderEndSessionEndpoint(clientRegistration);
+            Assert.notNull(endSessionEndpoint, "Failed to get endSessionEndpoint.");
 
-            // 取得 Provider ID Token
-            String providerIdToken = getProviderIdToken(authorization);
-
-            // 構建重定向到你應用程式的回調 URL，並帶上 state
-            String providerPostLogoutRedirectUri = UriComponentsBuilder.fromUriString(request.getRequestURL().toString())
-                    .replacePath(StringUtil.LOGOUT_CALLBACK_PATH)
-                    .queryParam(StringUtil.STATE, state)
-                    .build().toUriString();
+            // 取得 Logout 參數
+            HashMap<String, String> logoutParams = buildLogoutParams(oidcLogoutAuthentication, authorization, clientRegistration);
+            Assert.notNull(logoutParams, "Failed to get logoutParams.");
 
             // 重定向到上游 OIDC Provider
             providerLogoutService.initiateLogout(
                     endSessionEndpoint,
-                    providerIdToken,
-                    providerPostLogoutRedirectUri,
+                    logoutParams,
                     request,
                     response);
+
+            Logger.info("redirect.to.provider.endpoint.success");
         } catch (Exception e) {
-            log.error("Error Redirecting to OIDC Provider End Session Endpoint: {}", e.getMessage());
+            Logger.error("Error Redirecting to OIDC Provider End Session Endpoint", ErrorType.SYSTEM, e);
             redirectToClientOrDefault(oidcLogoutAuthentication, request, response);
         }
+    }
+
+    private HashMap<String, String> buildLogoutParams(OidcLogoutAuthenticationToken oidcLogoutAuthentication, OAuth2Authorization authorization, ClientRegistration clientRegistration) {
+        HashMap<String, String> logoutParams  = new HashMap<>();
+
+        // 取得 redirectUri
+        String redirectUri = oidcLogoutAuthentication.getPostLogoutRedirectUri();
+        Assert.hasText(redirectUri, "Failed to get redirectUri.");
+
+        // 加入 state
+        String state = oidcLogoutAuthentication.getState();
+        if (StringUtils.hasText(state)) {
+            logoutParams.put(StringUtil.STATE, state);
+        }
+
+        // 若 Provider 是 Cognito
+        if (StringUtil.COGNITO_PROVIDER_NAME.equalsIgnoreCase(clientRegistration.getClientName())) {
+            // 加入 client_id
+            Assert.hasText(clientRegistration.getClientId(), "Failed to get Client ID.");
+            logoutParams.put(StringUtil.CLIENT_ID_ATTRIBUTE_NAME, clientRegistration.getClientId());
+
+            // 加入 logout_uri
+            logoutParams.put(StringUtil.LOGOUT_URI_PARAM_NAME, redirectUri);
+        // 其他
+        } else {
+            // 加入 id_token_hint
+            Assert.hasText(getProviderIdToken(authorization), "Failed to get Id Token.");
+            logoutParams.put(StringUtil.ID_TOKEN_HINT_PARAM_NAME, getProviderIdToken(authorization));
+
+            // 加入 post_logout_redirect_uri
+            logoutParams.put(StringUtil.POST_LOGOUT_REDIRECT_URI_PARAM_NAME, redirectUri);
+        }
+
+        return logoutParams;
+
     }
 
     /**
@@ -144,12 +175,12 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
     }
 
     private void logLogoutActivityAndRemoveAuthorization(HttpServletRequest request, OAuth2Authorization authorization) {
-        // 清理授權數據，紀錄登出活動
+        // 清理授權數據
         if (authorization != null) {
             // 移除代理層的授權記錄
             // authorizationService.remove(authorization);
-            // 記錄登出活動
-            authActivityService.save(authorization, request, AuthAction.LOGOUT);
+//            // 記錄登出活動
+//            authActivityService.save(authorization, request, AuthAction.LOGOUT);
         }
     }
 
@@ -159,7 +190,7 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
         OAuth2Authorization authorization = null;
         if (idToken != null) {
             authorization = authorizationService.findByToken(
-                    idToken, new OAuth2TokenType(StringUtil.ID_TOKEN));
+                    idToken, new OAuth2TokenType(StringUtil.ID_TOKEN_PARAM_NAME));
         }
 
         return authorization;
@@ -174,28 +205,28 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
         }
     }
 
-    private String getClientRegistrationId(OAuth2Authorization authorization) {
-        String clientRegistrationId = null;
+    private ClientRegistration getClientRegistration(OAuth2Authorization authorization) {
+        ClientRegistration clientRegistration = null;
+
         Authentication userAuthentication = (Authentication) authorization.getAttributes().get(Principal.class.getName());
         if (userAuthentication instanceof OAuth2AuthenticationToken oauth2Token) {
-            clientRegistrationId = oauth2Token.getAuthorizedClientRegistrationId();
+            String clientRegistrationId = oauth2Token.getAuthorizedClientRegistrationId();
+            clientRegistration = clientRegistrationRepository.findByRegistrationId(clientRegistrationId);
+
         }
 
-        return clientRegistrationId;
+        return clientRegistration;
     }
 
-    private String getProviderEndSessionEndpoint(String clientRegistrationId) {
+    private String getProviderEndSessionEndpoint(ClientRegistration clientRegistration) {
         String endSessionEndpoint = null;
 
-        if (StringUtils.hasText(clientRegistrationId)) {
-            ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(clientRegistrationId);
-            if (clientRegistration != null) {
-                Map<String, Object> configurationMetadata = clientRegistration.getProviderDetails().getConfigurationMetadata();
-                if (configurationMetadata != null) {
-                    Object endpointObj = configurationMetadata.get(StringUtil.END_SESSION_ENDPOINT_ATTR_NAME);
-                    if (endpointObj instanceof String) {
-                        endSessionEndpoint = (String) endpointObj;
-                    }
+        if (clientRegistration != null) {
+            Map<String, Object> configurationMetadata = clientRegistration.getProviderDetails().getConfigurationMetadata();
+            if (configurationMetadata != null) {
+                Object endpointObj = configurationMetadata.get(StringUtil.END_SESSION_ENDPOINT_ATTR_NAME);
+                if (endpointObj instanceof String) {
+                    endSessionEndpoint = (String) endpointObj;
                 }
             }
         }
@@ -217,9 +248,4 @@ public class LogoutSuccessHandlerImpl implements AuthenticationSuccessHandler {
 
         return providerIdToken;
     }
-
-    private String getRedirectUri(OidcLogoutAuthenticationToken oidcLogoutAuthentication) {
-        return oidcLogoutAuthentication.getPostLogoutRedirectUri();
-    }
-
 }

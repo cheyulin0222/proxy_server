@@ -1,7 +1,6 @@
-package com.arplanets.auth.repository.persistence.impl.jdbc;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.po.domain.RefreshToken;
-import com.arplanets.auth.repository.persistence.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -27,7 +26,7 @@ public class RefreshTokenRepositoryJdbcImpl implements RefreshTokenRepository {
                 refreshToken.getClientId(),
                 refreshToken.getCreatedAt() != null ? Timestamp.from(refreshToken.getCreatedAt()) : null,
                 refreshToken.getExpiresAt() != null ? Timestamp.from(refreshToken.getExpiresAt()) : null,
-                refreshToken.getAuthSessionId()
+                refreshToken.getAuthId()
         );
     }
 }

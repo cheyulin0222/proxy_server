@@ -9,7 +9,8 @@
     <!-- 輸出路徑 -->
     <springProperty name="logging.path" source="logging.file.path" defaultValue="./logs/"/>
 
-    <timestamp key="date" datePattern="yyyy-MM-dd-HH" timeZone="Asia/Taipei"/>
+<!--    <timestamp key="hourlyDate" datePattern="yyyy-MM-dd-HH" timeZone="Asia/Taipei"/>-->
+    <timestamp key="currentDate" datePattern="yyyy-MM-dd-HH" timeZone="Asia/Taipei"/>
 
     <!-- 彩色日誌配置 -->
     <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
@@ -108,18 +109,27 @@
         </filter>
     </appender>
 
-    <!-- AWS CloudWatch Appender -->
-    <appender name="AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
-        <layout class="ch.qos.logback.classic.PatternLayout">
-            <pattern>%m%n</pattern>
-        </layout>
-        <logGroupName>${logGroupName}</logGroupName>
-        <logStreamName>${logStreamPrefix}-${date}</logStreamName>
-        <maxBatchLogEvents>50</maxBatchLogEvents>
-        <maxFlushTimeMillis>30000</maxFlushTimeMillis>
-        <region>${awsRegion}</region>
-        <accessKeyId>${awsAccessKey}</accessKeyId>
-        <secretAccessKey>${awsSecretKey}</secretAccessKey>
+     AWS CloudWatch Appender
+    <appender name="SIFT_AWS_LOGS" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <Key>hourlyDate</Key>
+            <defaultValue>${logStreamPrefix}-${currentDate}</defaultValue>
+        </discriminator>
+        <sift>
+            <appender name="AWS_LOGS-${hourlyDate}" class="ca.pjer.logback.AwsLogsAppender">
+                <layout class="ch.qos.logback.classic.PatternLayout">
+                    <pattern>%m%n</pattern>
+                </layout>
+                <logGroupName>${logGroupName}</logGroupName>
+                <logStreamName>${hourlyDate}</logStreamName>
+                <maxBatchLogEvents>50</maxBatchLogEvents>
+                <maxFlushTimeMillis>30000</maxFlushTimeMillis>
+                <region>${awsRegion}</region>
+                <accessKeyId>${awsAccessKey}</accessKeyId>
+                <secretAccessKey>${awsSecretKey}</secretAccessKey>
+            </appender>
+            <timeout>3900000</timeout>
+        </sift>
     </appender>
 
     <!-- 開發環境 -->
@@ -129,6 +139,7 @@
             <appender-ref ref="INFO_FILE"/>
             <appender-ref ref="ERROR_FILE"/>
             <appender-ref ref="WARN_FILE"/>
+            <appender-ref ref="SIFT_AWS_LOGS"/>
         </root>
     </springProfile>
 
@@ -136,7 +147,7 @@
     <springProfile name="test">
         <root level="info">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="AWS_LOGS"/>
+            <appender-ref ref="SIFT_AWS_LOGS"/>
         </root>
     </springProfile>
 
@@ -144,7 +155,7 @@
     <springProfile name="prod">
         <root level="info">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="AWS_LOGS"/>
+            <appender-ref ref="SIFT_AWS_LOGS"/>
         </root>
     </springProfile>
 </configuration>

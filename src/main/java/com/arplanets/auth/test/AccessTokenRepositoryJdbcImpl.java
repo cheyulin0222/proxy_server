@@ -1,7 +1,6 @@
-package com.arplanets.auth.repository.persistence.impl.jdbc;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.po.domain.AccessToken;
-import com.arplanets.auth.repository.persistence.AccessTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -27,7 +26,7 @@ public class AccessTokenRepositoryJdbcImpl implements AccessTokenRepository {
                 accessToken.getClientId(),
                 accessToken.getCreatedAt() != null ? Timestamp.from(accessToken.getCreatedAt()) : null,
                 accessToken.getExpiresAt() != null ? Timestamp.from(accessToken.getExpiresAt()) : null,
-                accessToken.getAuthSessionId(),
+                accessToken.getAuthId(),
                 accessToken.getRefreshTokenValue()
         );
     }

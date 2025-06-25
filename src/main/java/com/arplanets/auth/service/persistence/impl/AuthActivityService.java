@@ -1,8 +1,10 @@
 package com.arplanets.auth.service.persistence.impl;
 
+import com.arplanets.auth.log.ErrorType;
+import com.arplanets.auth.log.Logger;
 import com.arplanets.auth.model.enums.AuthAction;
 import com.arplanets.auth.model.po.domain.AuthActivity;
-import com.arplanets.auth.repository.persistence.AuthActivityRepository;
+import com.arplanets.auth.test.AuthActivityRepository;
 import com.arplanets.auth.utils.ClientInfoUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +24,8 @@ import java.util.Map;
 @Slf4j
 public class AuthActivityService {
 
-    private final AuthActivityRepository authActivityRepository;
-
-    public void save(OAuth2Authorization authorization, HttpServletRequest request, AuthAction authAction) {
-        if (authorization == null) {
-            return;
-        }
+    public AuthActivity getAuthActivity(OAuth2Authorization authorization, HttpServletRequest request, AuthAction authAction) {
+        AuthActivity authActivity = null;
 
         try {
             String refreshToken = getTokenValue(authorization.getRefreshToken());
@@ -40,8 +38,8 @@ public class AuthActivityService {
             // 獲取客戶端資訊
             Map<String, String> clientInfo = getClientInfo(request);
 
-            AuthActivity authActivity = AuthActivity.builder()
-                    .authSessionId(authorization.getId())
+            authActivity =  AuthActivity.builder()
+                    .authId(authorization.getId())
                     .refreshTokenValue(refreshToken)
                     .accessTokenValue(accessToken)
                     .userId(userId)
@@ -53,11 +51,19 @@ public class AuthActivityService {
                     .createdAt(issuedAt)
                     .build();
 
-            authActivityRepository.save(authActivity);
 
         } catch (Exception e) {
-            log.error("記錄登入活動時發生錯誤", e);
+            Logger.error("記錄 AuthActivity 時發生錯誤", ErrorType.SYSTEM, e);
         }
+
+        return authActivity;
+    }
+
+    public Map<String, Object> getAuthContext(OAuth2Authorization authorization, HttpServletRequest request, AuthAction authAction) {
+        AuthActivity authActivity = getAuthActivity(authorization, request, authAction);
+        Map<String, Object> context = new HashMap<>();
+        context.put("authActivity", authActivity);
+        return context;
     }
 
     private String getTokenValue(OAuth2Authorization.Token<?> token) {

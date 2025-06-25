@@ -12,9 +12,13 @@ import java.time.Instant;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class RefreshToken {
+public class RevocationToken {
 
-    private String refreshTokenValue;
+    private String tokenValue;
+
+    private String authId;
+
+    private String tokenType;
 
     private String userId;
 
@@ -26,5 +30,7 @@ public class RefreshToken {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "Asia/Taipei")
     private Instant expiresAt;
 
-    private String authId;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "Asia/Taipei")
+    private Instant revokedAt;
+
 }

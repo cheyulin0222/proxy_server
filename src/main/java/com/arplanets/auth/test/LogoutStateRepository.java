@@ -1,4 +1,4 @@
-package com.arplanets.auth.repository.inmemory;
+package com.arplanets.auth.test;
 
 import com.arplanets.auth.model.LogoutRequestAttributes;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-@Service
+//@Service
 @Slf4j
 public class LogoutStateRepository {
 
