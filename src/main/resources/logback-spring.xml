@@ -9,7 +9,6 @@
     <!-- 輸出路徑 -->
     <springProperty name="logging.path" source="logging.file.path" defaultValue="./logs/"/>
 
-<!--    <timestamp key="hourlyDate" datePattern="yyyy-MM-dd-HH" timeZone="Asia/Taipei"/>-->
     <timestamp key="currentDate" datePattern="yyyy-MM-dd-HH" timeZone="Asia/Taipei"/>
 
     <!-- 彩色日誌配置 -->
@@ -139,7 +138,6 @@
             <appender-ref ref="INFO_FILE"/>
             <appender-ref ref="ERROR_FILE"/>
             <appender-ref ref="WARN_FILE"/>
-            <appender-ref ref="SIFT_AWS_LOGS"/>
         </root>
     </springProfile>
 
